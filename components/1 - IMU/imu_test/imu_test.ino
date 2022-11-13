@@ -28,7 +28,7 @@ void setup() {
 void loop() {
 
 /*----- VARIABLES -----*/
-/* IMU */
+  /* IMU */
   float ax, ay, az; // accelerometer
   float gx, gy, gz; // gyroscope
 
