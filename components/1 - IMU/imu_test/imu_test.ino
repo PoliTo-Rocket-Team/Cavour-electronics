@@ -47,7 +47,7 @@ void loop() {
 
   if(az < 0){
     count ++;
-    if(count == 50){
+    if(count == 100){
       is_falling = true;
     }
   }
