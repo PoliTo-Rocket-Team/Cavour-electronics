@@ -15,47 +15,49 @@ void setup() {
 }
 
 void loop() {
-  if (Serial.available()) {
-    char inChar;
-    Serial.readBytes(&inChar, 1);
-    switch (inChar) {
-      case 'B':
-        backend_connected = true;
-        break;
-      case 'F':
-        {
-          Serial.readBytes(&inChar, 1);
-          frequency = inChar;
+  // if (Serial.available()) {
+  //   char inChar;
+  //   Serial.readBytes(&inChar, 1);
+  //   switch (inChar) {
+  //     case 'B':
+  //       backend_connected = true;
+  //       break;
+  //     case 'F':
+  //       {
+  //         Serial.readBytes(&inChar, 1);
+  //         frequency = inChar;
 
-          ResponseStructContainer c = e220ttl.getConfiguration();
-          Configuration configuration = *((Configuration*)c.data);
-
-          configuration.CHAN = 23;
-          ResponseStatus rs = e220ttl.setConfiguration(configuration, WRITE_CFG_PWR_DWN_SAVE);
-          c.close();
-          // emulating COM CHECK or no response
-          int randNumber = random(10);
-          if (randNumber > 5) {
-            //Serial.write('C');
-            //Serial.write('\0');
-            //ResponseStatus rs = e220ttl.sendMessage("Hello, world?");
-            // Check If there is some problem of succesfully send
-          }
-          break;
-        }
-    }
-  }
-  if (frequency == 0xFF) {
-    if (!backend_connected) {
-      Serial.write('R');
-      Serial.write('\0');
-      delay(500);
-    }
-    return;
-  }
-  if (e220ttl.available()) {
+  //         ResponseStructContainer c = e220ttl.getConfiguration();
+  //         Configuration configuration = *((Configuration*)c.data);
+  //         configuration.ADDH = 0x00;
+  //         configutation.ADDL = 0x03;
+  //         configuration.CHAN = 23;
+  //         ResponseStatus rs = e220ttl.setConfiguration(configuration, WRITE_CFG_PWR_DWN_SAVE);
+  //         c.close();
+  //         // // emulating COM CHECK or no response
+  //         // int randNumber = random(10);
+  //         // if (randNumber > 5) {
+  //         //   Serial.write('C');
+  //         //   Serial.write('\0');
+  //         //   ResponseStatus rs = e220ttl.sendMessage("Hello, world?");
+  //         //   // Check If there is some problem of succesfully send
+  //         // }
+  //         break;
+  //       }
+  //   }
+  // }
+  // if (frequency == 0xFF) {
+  //   if (!backend_connected) {
+  //     Serial.write('R');
+  //     Serial.write('\0');
+  //     delay(500);
+  //   }
+  //   return;
+  // }
+  if (e220ttl.available() > 1) {
     Serial.print("Message available");
     ResponseContainer rc = e220ttl.receiveMessage();
+
     if (rc.status.code != 1) {
       Serial.println(rc.status.getResponseDescription());
     } else {
@@ -63,6 +65,21 @@ void loop() {
       Serial.println(rc.status.getResponseDescription());
       Serial.print(rc.data);
     }
+
+    switch(rc.data){
+        case "C":
+          Serial.println("C received, sending C");
+          delay(400);
+          ResponseStatus rs = e220ttl.sendMessage("C");
+          Serial.println(rs.getResponseDescription());
+          break;
+        case "A":
+          Serial.println("A received, sending A");
+          delay(400);
+          ResponseStatus rs = e220ttl.sendMessage("A");
+          Serial.println(rs.getResponseDescription());
+          break;
+      }
     /*
   // waiting for backend ready signal
   if (backend_connected && frequency != 0xFF) {
