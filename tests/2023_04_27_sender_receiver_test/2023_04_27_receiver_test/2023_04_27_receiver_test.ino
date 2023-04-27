@@ -15,45 +15,43 @@ void setup() {
 }
 
 void loop() {
-  // if (Serial.available()) {
-  //   char inChar;
-  //   Serial.readBytes(&inChar, 1);
-  //   switch (inChar) {
-  //     case 'B':
-  //       backend_connected = true;
-  //       break;
-  //     case 'F':
-  //       {
-  //         Serial.readBytes(&inChar, 1);
-  //         frequency = inChar;
+  if (Serial.available()) {
+    char inChar;
+    Serial.readBytes(&inChar, 1);
+    switch (inChar) {
+      case 'B':
+        backend_connected = true;
+        break;
+      case 'F':
+        {
+          Serial.readBytes(&inChar, 1);
+          frequency = inChar;
+          char msg[4];
+          msg[0] = 'F';
+          msg[1] = 0;
+          strcat(msg, "55");
+          ResponseStatus rs = e220ttl.sendFixedMessage(0, 2, 40, msg);
+          ResponseContainer rc;
+          rc.data = "A";
 
-  //         ResponseStructContainer c = e220ttl.getConfiguration();
-  //         Configuration configuration = *((Configuration*)c.data);
-  //         configuration.ADDH = 0x00;
-  //         configutation.ADDL = 0x03;
-  //         configuration.CHAN = 23;
-  //         ResponseStatus rs = e220ttl.setConfiguration(configuration, WRITE_CFG_PWR_DWN_SAVE);
-  //         c.close();
-  //         // // emulating COM CHECK or no response
-  //         // int randNumber = random(10);
-  //         // if (randNumber > 5) {
-  //         //   Serial.write('C');
-  //         //   Serial.write('\0');
-  //         //   ResponseStatus rs = e220ttl.sendMessage("Hello, world?");
-  //         //   // Check If there is some problem of succesfully send
-  //         // }
-  //         break;
-  //       }
-  //   }
-  // }
-  // if (frequency == 0xFF) {
-  //   if (!backend_connected) {
-  //     Serial.write('R');
-  //     Serial.write('\0');
-  //     delay(500);
-  //   }
-  //   return;
-  // }
+          while (rc.data[0] != 'C'){ // wait until response
+            if(e220ttl.available() > 1){
+              Serial.println("Message received");   // LOG - TO BE ELIMINATED
+              rc = e220ttl.receiveMessage();
+              if (rc.status.code!=1){
+                Serial.println(rc.status.getResponseDescription());
+              }else{  // print received data
+                Serial.println(rc.status.getResponseDescription());
+                Serial.println(rc.data);
+                ResponseStatus rs = e220ttl.sendFixedMessage(0, 2, 40, "A");
+              }
+            }
+          }
+
+          break;
+        }
+    }
+  }
 
   delay(350);
   
@@ -70,19 +68,16 @@ void loop() {
     }
 
     //switch(rc.data){
-        if (rc.data[0] == 'C')
-        {
-          Serial.println("C received, sending C");
-          delay(450);
-          ResponseStatus rs = e220ttl.sendFixedMessage(0, 2, 40, "C");
-          Serial.println(rs.getResponseDescription());
-        }
+        // if (rc.data[0] == 'C')
+        // {
+        //   Serial.println("C received, sending C");
+        //   delay(450);
+        //   ResponseStatus rs = e220ttl.sendFixedMessage(0, 2, 40, "C");
+        //   Serial.println(rs.getResponseDescription());
+        // }
 
-        if (rc.data[0] == 'A')
-        {
-          Serial.println("A received");
-          delay(450);
-        }
+      
+        
       //}
     /*
   // waiting for backend ready signal
