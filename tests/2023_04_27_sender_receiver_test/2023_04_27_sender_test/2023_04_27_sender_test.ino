@@ -18,16 +18,16 @@ void setup() {
     Serial.println(rs.getResponseDescription());
     delay(400);
 
-    // if(e220ttl.available() > 1){
+    if(e220ttl.available() > 1){
       Serial.println("Message received");   // LOG - TO BE ELIMINATED
       rc = e220ttl.receiveMessage();
-      // if (rc.status.code!=1){
-      //   Serial.println(rc.status.getResponseDescription());
-      // }else{  // print received data
+      if (rc.status.code!=1){
+        Serial.println(rc.status.getResponseDescription());
+      }else{  // print received data
         Serial.println(rc.status.getResponseDescription());
         Serial.println(rc.data);
-      // }
-    // }
+      }
+    }
     delay(400);
   }
 }
