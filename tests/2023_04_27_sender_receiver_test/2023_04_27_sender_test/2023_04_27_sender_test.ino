@@ -13,10 +13,10 @@ void setup() {
   ResponseContainer rc;
   rc.data = "A";
 
-  while (rc.data != "C"){ // wait until GS response
-    ResponseStatus rs = e220ttl.sendMessage("C");
+  while (rc.data[0] != 'C'){ // wait until GS response
+    ResponseStatus rs = e220ttl.sendFixedMessage(0,3,40,"C");
     Serial.println(rs.getResponseDescription());
-    delay(400);
+    delay(450);
 
     if(e220ttl.available() > 1){
       Serial.println("Message received");   // LOG - TO BE ELIMINATED
@@ -28,12 +28,11 @@ void setup() {
         Serial.println(rc.data);
       }
     }
-    delay(400);
   }
 }
 
 void loop() {
-  ResponseStatus rs = e220ttl.sendMessage("C");
+  ResponseStatus rs = e220ttl.sendFixedMessage(0,3,40,"A");
   Serial.println(rs.getResponseDescription());
   Serial.println("SONO NEL LOOP"); // LOG - TO BE ELIMINATED
   delay(400);
