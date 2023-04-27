@@ -35,5 +35,5 @@ void loop() {
   ResponseStatus rs = e220ttl.sendFixedMessage(0,3,40,"A");
   Serial.println(rs.getResponseDescription());
   Serial.println("SONO NEL LOOP"); // LOG - TO BE ELIMINATED
-  delay(400);
+  delay(450);
 }
