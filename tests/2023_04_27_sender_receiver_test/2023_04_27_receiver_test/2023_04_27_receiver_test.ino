@@ -54,8 +54,11 @@ void loop() {
   //   }
   //   return;
   // }
+
+  delay(350);
+  
   if (e220ttl.available() > 1) {
-    Serial.print("Message available");
+    Serial.println("Message available");
     ResponseContainer rc = e220ttl.receiveMessage();
 
     if (rc.status.code != 1) {
@@ -63,23 +66,24 @@ void loop() {
     } else {
       // Print the data received
       Serial.println(rc.status.getResponseDescription());
-      Serial.print(rc.data);
+      Serial.println(rc.data);
     }
 
-    switch(rc.data){
-        case "C":
+    //switch(rc.data){
+        if (rc.data[0] == 'C')
+        {
           Serial.println("C received, sending C");
-          delay(400);
-          ResponseStatus rs = e220ttl.sendMessage("C");
+          delay(450);
+          ResponseStatus rs = e220ttl.sendFixedMessage(0, 2, 40, "C");
           Serial.println(rs.getResponseDescription());
-          break;
-        case "A":
-          Serial.println("A received, sending A");
-          delay(400);
-          ResponseStatus rs = e220ttl.sendMessage("A");
-          Serial.println(rs.getResponseDescription());
-          break;
-      }
+        }
+
+        if (rc.data[0] == 'A')
+        {
+          Serial.println("A received");
+          delay(450);
+        }
+      //}
     /*
   // waiting for backend ready signal
   if (backend_connected && frequency != 0xFF) {
