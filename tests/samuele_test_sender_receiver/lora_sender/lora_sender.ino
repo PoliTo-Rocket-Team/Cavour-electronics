@@ -24,5 +24,5 @@ void loop() {
 
   i += 1;
   
-  delay(400);
+  delay(1000);
 }
