@@ -30,7 +30,7 @@ void loop() {
           msg[0] = 'F';
           msg[1] = 0;
           strcat(msg, "55");
-          ResponseStatus rs = e220ttl.sendFixedMessage(0, 2, 40, msg);
+          ResponseStatus rs = e220ttl.sendMessage(msg);
           ResponseContainer rc;
           rc.data = "A";
 
@@ -43,7 +43,7 @@ void loop() {
               }else{  // print received data
                 Serial.println(rc.status.getResponseDescription());
                 Serial.println(rc.data);
-                ResponseStatus rs = e220ttl.sendFixedMessage(0, 2, 40, "A");
+                ResponseStatus rs = e220ttl.sendMessage("A");
               }
             }
           }

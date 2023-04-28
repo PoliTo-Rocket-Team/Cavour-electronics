@@ -14,7 +14,7 @@ void setup() {
   rc.data = "A";
 
   while (rc.data[0] != 'C'){ // wait until GS response
-    ResponseStatus rs = e220ttl.sendFixedMessage(0,3,40,"C");
+    ResponseStatus rs = e220ttl.sendMessage("C");
     Serial.println(rs.getResponseDescription());
     delay(450);
 
@@ -67,7 +67,7 @@ void loop() {
           rc.data = "D";
 
           while (rc.data[0] != 'A'){ // wait until GS response
-            ResponseStatus rs = e220ttl.sendFixedMessage(0,3,40,"C");
+            ResponseStatus rs = e220ttl.sendMessage("C");
             Serial.println(rs.getResponseDescription());
             delay(450);
 
