@@ -8,15 +8,17 @@ struct RocketData {
   float barometer;
 };
 
-LoRa_E220 e220ttl(&Serial1, 2, 4, 6);  //  RX AUX M0 M1
+unsigned long last = 0;
+unsigned long waitTime = 200;
+
+LoRa_E220 e220ttl(&Serial1, 3, 4, 6);  //  RX AUX M0 M1
 
 bool backend_connected = false;
 byte frequency = 0xFF;
 
 void setup() {
-
   Serial.begin(9600);
-  delay(2);
+  delay(2000);
   randomSeed(analogRead(0));
   // Sending Ready Signal to Backend
   e220ttl.begin();
@@ -25,7 +27,6 @@ void setup() {
 	Configuration configuration = *(Configuration*) c.data;
 	printParameters(configuration);
 
-  delay(500);
 }
 
 void loop() {
@@ -35,6 +36,12 @@ void loop() {
     switch (inChar) {
       case 'B':
         backend_connected = true;
+        break;
+      case 'W':
+        waitTime = Serial.parseInt();
+        Serial.print("Now delaying ");
+        Serial.print(waitTime);
+        Serial.println("ms");
         break;
       case 'F':
         {
@@ -69,35 +76,48 @@ void loop() {
         }
     }
   }
-
-  delay(250);
   
   if (e220ttl.available()) {
-    Serial.println("Message available");
+    Serial.print("Received: ");
     ResponseContainer rc = e220ttl.receiveMessage();
 
-    if (rc.status.code != 1) {
+    if (rc.status.code != 1) { // errore
+      Serial.print("errore -> ");
       Serial.println(rc.status.getResponseDescription());
     } else {
-      // Print the data received
-      Serial.println(rc.status.getResponseDescription());
-      Serial.println(rc.data);
-    }
-
-    switch(rc.data[0]) {
+      Serial.print("raw = ");
+      Serial.print(rc.data);
+      unsigned long now = millis();
+      unsigned long delta = now - last;
+      Serial.print("\t {"); 
+      if(delta >= 10000) {Serial.print(delta / 1000.0); Serial.println("s}");}
+      else {Serial.print(delta); Serial.println("ms}");}
+      last = now;
+      switch(rc.data[0]) {
       case 'C':
         {
-          ResponseStatus rs = e220ttl.sendMessage("C");
-          Serial.print("Resend C \t");
-          Serial.println(rs.getResponseDescription());
+          Serial.print("Resend C: [");
+          // ResponseStatus rs;
+          // for(unsigned i=0; i<10; i++) {
+          //   rs = e220ttl.sendMessage("C");
+          //   Serial.print(i+1);
+          //   Serial.print(' ');
+          //   Serial.print(rs.getResponseDescription());
+          //   Serial.print(", ");
+          //   delay(250);
+          // }
+          Serial.println(']');
+          break;
         }
       case 'D':
         {
           Serial.println("Dati ricevuti");
-          
+          break;
         }
+      }
     }
   }
+  delay(waitTime);
 }
 
 void printParameters(struct Configuration& configuration) {
