@@ -1,7 +1,7 @@
 #include "Arduino.h"
 #include "LoRa_E220.h"
 
-#define DEBUG 1
+// #define LoRa_E220_DEBUG 1
 
 struct RocketData {
   float acc_lin[3];
@@ -9,10 +9,13 @@ struct RocketData {
   float barometer;
 };
 
+unsigned waitTime = 2000;
+
+
 void changeFrequency(unsigned freq);
 void sendData();
 
-LoRa_E220 e220ttl(&Serial1, 2, 4, 6); //  RX AUX M0 M1
+LoRa_E220 e220ttl(&Serial1, 3, 4, 6); //  RX AUX M0 M1
 
 void setup() {
   Serial.begin(9600);
@@ -22,24 +25,35 @@ void setup() {
   
   ResponseStructContainer c;
 	c = e220ttl.getConfiguration();
-	// It's important get configuration pointer before all other operation
 	Configuration configuration = *(Configuration*) c.data;
-	// Serial.println(c.status.getResponseDescription());
-	// Serial.println(c.status.code);
-
 	printParameters(configuration);
-
 
   Serial.println("Inizializzato. Inizio trasmissione.");  // LOG - TO BE ELIMINATED
   
   ResponseContainer rc;
   rc.data = "A";
-
+  String msg;
+  unsigned long count = 0;
   while (rc.data[0] != 'C'){ // wait until GS response
-    ResponseStatus rs = e220ttl.sendMessage("C");
+
+    if(Serial.available()){
+      char inChar;
+      Serial.readBytes(&inChar, 1);
+      switch (inChar){
+        case 'W':
+          waitTime = Serial.parseInt();
+          count = 0;
+          Serial.print("Now delaying "); Serial.print(waitTime); Serial.println(" ms");
+          break;
+      }
+    }
+
+    msg = "count pino ";
+    msg += count++;
+    ResponseStatus rs = e220ttl.sendMessage(msg);
     Serial.print("Send start C \t");
     Serial.println(rs.getResponseDescription());
-    delay(450);
+    delay(waitTime);
 
     if(e220ttl.available()){
       Serial.println("Message received");   // LOG - TO BE ELIMINATED
