@@ -1,6 +1,14 @@
 #include "LoRa_E220.h"
 
-LoRa_E220 e220ttl(&Serial1, 3, 4, 6);  //  RX AUX M0 M1
+#define DEBUG 1
+
+struct RocketData {
+  float acc_lin[3];
+  float acc_ang[3];
+  float barometer;
+};
+
+LoRa_E220 e220ttl(&Serial1, 2, 4, 6);  //  RX AUX M0 M1
 
 bool backend_connected = false;
 byte frequency = 0xFF;
@@ -8,9 +16,15 @@ byte frequency = 0xFF;
 void setup() {
 
   Serial.begin(9600);
+  delay(2);
   randomSeed(analogRead(0));
   // Sending Ready Signal to Backend
   e220ttl.begin();
+
+  ResponseStructContainer c = e220ttl.getConfiguration();
+	Configuration configuration = *(Configuration*) c.data;
+	printParameters(configuration);
+
   delay(500);
 }
 
@@ -24,13 +38,16 @@ void loop() {
         break;
       case 'F':
         {
-          Serial.readBytes(&inChar, 1);
-          frequency = inChar;
-          char msg[4];
-          msg[0] = 'F';
-          msg[1] = 0;
-          strcat(msg, "55");
+          int f = Serial.parseInt();
+          char msg[] = "F0";
+          msg[1] = (char) f;
+          Serial.print("mando frequenza ");
+          Serial.print(f);
+          Serial.print('\t');
+          Serial.println(msg);
           ResponseStatus rs = e220ttl.sendMessage(msg);
+          Serial.print("Frequency msg \t");
+          Serial.println(rs.getResponseDescription());
           ResponseContainer rc;
           rc.data = "A";
 
@@ -53,9 +70,9 @@ void loop() {
     }
   }
 
-  delay(350);
+  delay(250);
   
-  if (e220ttl.available() > 1) {
+  if (e220ttl.available()) {
     Serial.println("Message available");
     ResponseContainer rc = e220ttl.receiveMessage();
 
@@ -67,115 +84,42 @@ void loop() {
       Serial.println(rc.data);
     }
 
-    //switch(rc.data){
-        // if (rc.data[0] == 'C')
-        // {
-        //   Serial.println("C received, sending C");
-        //   delay(450);
-        //   ResponseStatus rs = e220ttl.sendFixedMessage(0, 2, 40, "C");
-        //   Serial.println(rs.getResponseDescription());
-        // }
-
-      
-        
-      //}
-    /*
-  // waiting for backend ready signal
-  if (backend_connected && frequency != 0xFF) {
-
-    int randNumber;
-    // COM CHECK
-
-    // Emulating errors
-    randNumber = random(40);
-    if (randNumber > 30) {
-      Serial.write('E');
-      Serial.write('1');
-      return;
+    switch(rc.data[0]) {
+      case 'C':
+        {
+          ResponseStatus rs = e220ttl.sendMessage("C");
+          Serial.print("Resend C \t");
+          Serial.println(rs.getResponseDescription());
+        }
+      case 'D':
+        {
+          Serial.println("Dati ricevuti");
+          
+        }
     }
-
-    if (randNumber > 20) {
-      Serial.write('E');
-      Serial.write('2');
-      return;
-    }
-
-    if (randNumber > 10) {
-      Serial.write('E');
-      Serial.write('3');
-      return;
-    }
-
-    // ALL OK
-    Serial.write('O');
-    delay(5000);
-  }
-  */
   }
 }
-  void printParameters(struct Configuration configuration) {
-    DEBUG_PRINTLN("----------------------------------------");
 
-    DEBUG_PRINT(F("HEAD : "));
-    DEBUG_PRINT(configuration.COMMAND, HEX);
-    DEBUG_PRINT(" ");
-    DEBUG_PRINT(configuration.STARTING_ADDRESS, HEX);
-    DEBUG_PRINT(" ");
-    DEBUG_PRINTLN(configuration.LENGHT, HEX);
-    DEBUG_PRINTLN(F(" "));
-    DEBUG_PRINT(F("AddH : "));
-    DEBUG_PRINTLN(configuration.ADDH, HEX);
-    DEBUG_PRINT(F("AddL : "));
-    DEBUG_PRINTLN(configuration.ADDL, HEX);
-    DEBUG_PRINTLN(F(" "));
-    DEBUG_PRINT(F("Chan : "));
-    DEBUG_PRINT(configuration.CHAN, DEC);
-    DEBUG_PRINT(" -> ");
-    DEBUG_PRINTLN(configuration.getChannelDescription());
-    DEBUG_PRINTLN(F(" "));
-    DEBUG_PRINT(F("SpeedParityBit     : "));
-    DEBUG_PRINT(configuration.SPED.uartParity, BIN);
-    DEBUG_PRINT(" -> ");
-    DEBUG_PRINTLN(configuration.SPED.getUARTParityDescription());
-    DEBUG_PRINT(F("SpeedUARTDatte     : "));
-    DEBUG_PRINT(configuration.SPED.uartBaudRate, BIN);
-    DEBUG_PRINT(" -> ");
-    DEBUG_PRINTLN(configuration.SPED.getUARTBaudRateDescription());
-    DEBUG_PRINT(F("SpeedAirDataRate   : "));
-    DEBUG_PRINT(configuration.SPED.airDataRate, BIN);
-    DEBUG_PRINT(" -> ");
-    DEBUG_PRINTLN(configuration.SPED.getAirDataRateDescription());
-    DEBUG_PRINTLN(F(" "));
-    DEBUG_PRINT(F("OptionSubPacketSett: "));
-    DEBUG_PRINT(configuration.OPTION.subPacketSetting, BIN);
-    DEBUG_PRINT(" -> ");
-    DEBUG_PRINTLN(configuration.OPTION.getSubPacketSetting());
-    DEBUG_PRINT(F("OptionTranPower    : "));
-    DEBUG_PRINT(configuration.OPTION.transmissionPower, BIN);
-    DEBUG_PRINT(" -> ");
-    DEBUG_PRINTLN(configuration.OPTION.getTransmissionPowerDescription());
-    DEBUG_PRINT(F("OptionRSSIAmbientNo: "));
-    DEBUG_PRINT(configuration.OPTION.RSSIAmbientNoise, BIN);
-    DEBUG_PRINT(" -> ");
-    DEBUG_PRINTLN(configuration.OPTION.getRSSIAmbientNoiseEnable());
-    DEBUG_PRINTLN(F(" "));
-    DEBUG_PRINT(F("TransModeWORPeriod : "));
-    DEBUG_PRINT(configuration.TRANSMISSION_MODE.WORPeriod, BIN);
-    DEBUG_PRINT(" -> ");
-    DEBUG_PRINTLN(configuration.TRANSMISSION_MODE.getWORPeriodByParamsDescription());
-    DEBUG_PRINT(F("TransModeEnableLBT : "));
-    DEBUG_PRINT(configuration.TRANSMISSION_MODE.enableLBT, BIN);
-    DEBUG_PRINT(" -> ");
-    DEBUG_PRINTLN(configuration.TRANSMISSION_MODE.getLBTEnableByteDescription());
-    DEBUG_PRINT(F("TransModeEnableRSSI: "));
-    DEBUG_PRINT(configuration.TRANSMISSION_MODE.enableRSSI, BIN);
-    DEBUG_PRINT(" -> ");
-    DEBUG_PRINTLN(configuration.TRANSMISSION_MODE.getRSSIEnableByteDescription());
-    DEBUG_PRINT(F("TransModeFixedTrans: "));
-    DEBUG_PRINT(configuration.TRANSMISSION_MODE.fixedTransmission, BIN);
-    DEBUG_PRINT(" -> ");
-    DEBUG_PRINTLN(configuration.TRANSMISSION_MODE.getFixedTransmissionDescription());
-
-
-    DEBUG_PRINTLN("----------------------------------------");
-  }
+void printParameters(struct Configuration& configuration) {
+	Serial.println("----------------------------------------");
+	Serial.print(F("HEAD : "));  Serial.print(configuration.COMMAND, HEX);Serial.print(" ");Serial.print(configuration.STARTING_ADDRESS, HEX);Serial.print(" ");Serial.println(configuration.LENGHT, HEX);
+	Serial.println(F(" "));
+	Serial.print(F("AddH : "));  Serial.println(configuration.ADDH, HEX);
+	Serial.print(F("AddL : "));  Serial.println(configuration.ADDL, HEX);
+	Serial.println(F(" "));
+	Serial.print(F("Chan : "));  Serial.print(configuration.CHAN, DEC); Serial.print(" -> "); Serial.println(configuration.getChannelDescription());
+	Serial.println(F(" "));
+	Serial.print(F("SpeedParityBit     : "));  Serial.print(configuration.SPED.uartParity, BIN);Serial.print(" -> "); Serial.println(configuration.SPED.getUARTParityDescription());
+	Serial.print(F("SpeedUARTDatte     : "));  Serial.print(configuration.SPED.uartBaudRate, BIN);Serial.print(" -> "); Serial.println(configuration.SPED.getUARTBaudRateDescription());
+	Serial.print(F("SpeedAirDataRate   : "));  Serial.print(configuration.SPED.airDataRate, BIN);Serial.print(" -> "); Serial.println(configuration.SPED.getAirDataRateDescription());
+	Serial.println(F(" "));
+	Serial.print(F("OptionSubPacketSett: "));  Serial.print(configuration.OPTION.subPacketSetting, BIN);Serial.print(" -> "); Serial.println(configuration.OPTION.getSubPacketSetting());
+	Serial.print(F("OptionTranPower    : "));  Serial.print(configuration.OPTION.transmissionPower, BIN);Serial.print(" -> "); Serial.println(configuration.OPTION.getTransmissionPowerDescription());
+	Serial.print(F("OptionRSSIAmbientNo: "));  Serial.print(configuration.OPTION.RSSIAmbientNoise, BIN);Serial.print(" -> "); Serial.println(configuration.OPTION.getRSSIAmbientNoiseEnable());
+	Serial.println(F(" "));
+	Serial.print(F("TransModeWORPeriod : "));  Serial.print(configuration.TRANSMISSION_MODE.WORPeriod, BIN);Serial.print(" -> "); Serial.println(configuration.TRANSMISSION_MODE.getWORPeriodByParamsDescription());
+	Serial.print(F("TransModeEnableLBT : "));  Serial.print(configuration.TRANSMISSION_MODE.enableLBT, BIN);Serial.print(" -> "); Serial.println(configuration.TRANSMISSION_MODE.getLBTEnableByteDescription());
+	Serial.print(F("TransModeEnableRSSI: "));  Serial.print(configuration.TRANSMISSION_MODE.enableRSSI, BIN);Serial.print(" -> "); Serial.println(configuration.TRANSMISSION_MODE.getRSSIEnableByteDescription());
+	Serial.print(F("TransModeFixedTrans: "));  Serial.print(configuration.TRANSMISSION_MODE.fixedTransmission, BIN);Serial.print(" -> "); Serial.println(configuration.TRANSMISSION_MODE.getFixedTransmissionDescription());
+	Serial.println("----------------------------------------");
+}
