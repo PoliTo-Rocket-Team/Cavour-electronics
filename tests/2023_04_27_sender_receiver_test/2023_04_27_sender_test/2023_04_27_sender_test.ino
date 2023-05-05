@@ -1,6 +1,17 @@
 #include "Arduino.h"
 #include "LoRa_E220.h"
 
+#define DEBUG 1
+
+struct RocketData {
+  float acc_lin[3];
+  float acc_ang[3];
+  float barometer;
+};
+
+void changeFrequency(unsigned freq);
+void sendData();
+
 LoRa_E220 e220ttl(&Serial1, 2, 4, 6); //  RX AUX M0 M1
 
 void setup() {
@@ -9,12 +20,13 @@ void setup() {
   
   delay(500);
   Serial.println("Inizializzato. Inizio trasmissione.");  // LOG - TO BE ELIMINATED
-
+  
   ResponseContainer rc;
   rc.data = "A";
 
   while (rc.data[0] != 'C'){ // wait until GS response
     ResponseStatus rs = e220ttl.sendMessage("C");
+    Serial.print("Send start C \t");
     Serial.println(rs.getResponseDescription());
     delay(450);
 
@@ -37,57 +49,67 @@ void loop() {
   Serial.println("Sono nel loop");
 
   if(e220ttl.available() > 1){
-      Serial.println("Message received");   // LOG - TO BE ELIMINATED
-      ResponseContainer rc = e220ttl.receiveMessage();
-      if (rc.status.code!=1){
-        Serial.println(rc.status.getResponseDescription());
-      }else{  // print received data
-        Serial.println(rc.status.getResponseDescription());
-        Serial.println(rc.data);
-      }
-      if(rc.data[0] == 'F'){
-        	ResponseStructContainer c;
-	        c = e220ttl.getConfiguration();
-	        // It's important get configuration pointer before all other operation
-	        Configuration configuration = *(Configuration*) c.data;
-	        Serial.println(c.status.getResponseDescription());
-	        Serial.println(c.status.code);
-
-          char freq[3];
-          freq[0] = rc.data[1];
-          freq[1] = rc.data[2];
-          freq[2] = 0;
-
-          Serial.print("Mi hai detto che la frequenza e' \t");
-          Serial.println(freq);
-
-	        printParameters(configuration);
-
-          ResponseContainer rc;
-          rc.data = "D";
-
-          while (rc.data[0] != 'A'){ // wait until GS response
-            ResponseStatus rs = e220ttl.sendMessage("C");
-            Serial.println(rs.getResponseDescription());
-            delay(450);
-
-            if(e220ttl.available() > 1){
-              Serial.println("Message received");   // LOG - TO BE ELIMINATED
-              rc = e220ttl.receiveMessage();
-              if (rc.status.code!=1){
-                Serial.println(rc.status.getResponseDescription());
-              }else{  // print received data
-                Serial.println(rc.status.getResponseDescription());
-                Serial.println(rc.data);
-              }
-            }
-          }
-
-      }
+    Serial.println("Message received");   // LOG - TO BE ELIMINATED
+    ResponseContainer rc = e220ttl.receiveMessage();
+    if (rc.status.code!=1){
+      Serial.println(rc.status.getResponseDescription());
+    }else{  // print received data
+      Serial.println(rc.status.getResponseDescription());
+      Serial.println(rc.data);
     }
+    if(rc.data[0] == 'F') changeFrequency(rc.data[1]);
+  }
+  else sendData();
 }
 
+void changeFrequency(unsigned freq) {
+  ResponseStructContainer c;
+  c = e220ttl.getConfiguration();
+  // It's important get configuration pointer before all other operation
+  Configuration configuration = *(Configuration*) c.data;
+  Serial.println(c.status.getResponseDescription());
+  Serial.println(c.status.code);
 
+  Serial.print("Mi hai detto che la frequenza e' \t");
+  Serial.println(freq);
+
+  printParameters(configuration);
+
+  ResponseContainer rc;
+  rc.data = "D";
+
+  do {
+    ResponseStatus rs = e220ttl.sendMessage("C");
+    Serial.println(rs.getResponseDescription());
+    delay(250);
+    if(e220ttl.available() == 0) continue;
+    Serial.println("Message received");   // LOG - TO BE ELIMINATED
+    rc = e220ttl.receiveMessage();
+    if (rc.status.code!=1){
+      Serial.println(rc.status.getResponseDescription());
+    }else{  // print received data
+      Serial.println(rc.status.getResponseDescription());
+      Serial.println(rc.data);
+    }
+  } while(rc.data[0] != 'A');
+}
+
+void sendData() {
+  RocketData msg;
+  msg.acc_lin[0] = msg.acc_lin[1] = msg.acc_lin[2] = 2.3;
+  msg.acc_ang[0] = msg.acc_ang[1] = msg.acc_ang[2] = 7.9;
+  msg.barometer = 3.4;
+  char str[2 + sizeof(RocketData)];
+  str[0] = 'D';
+  str[1 + sizeof(RocketData)] = '\0';
+  strncpy((char*) &msg, str, sizeof(RocketData));
+  ResponseStatus rs = e220ttl.sendMessage(str);
+  Serial.print("Data sent (");
+  Serial.print(str);
+  Serial.print(')');
+  Serial.print(" > ");
+  Serial.println(rs.getResponseDescription());
+}
 
 void printParameters(struct Configuration configuration) {
 	DEBUG_PRINTLN("----------------------------------------");
@@ -125,4 +147,3 @@ void printModuleInformation(struct ModuleInformation moduleInformation) {
 	Serial.println("----------------------------------------");
 
 }
-
