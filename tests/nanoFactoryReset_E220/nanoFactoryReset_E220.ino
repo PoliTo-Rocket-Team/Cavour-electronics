@@ -19,9 +19,9 @@ void setup() {
   delay(100);
 
   // WRITE DEFAULT REGISTER PARAMETERS：C0 00 00 62 00 17
-
+  
   byte buf[] = { 0xC0, 0x00, 0x00, 0x3E, 0x00, 0x11 };
-  Serial.write( (uint8_t *) buf, 6);
+  Serial1.write( (uint8_t *) buf, 6);
   
   delay(500);
     
