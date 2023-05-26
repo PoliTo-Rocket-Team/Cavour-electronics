@@ -33,8 +33,7 @@ char data_line[140];
 
 void setup() {
   Serial.begin(9600);
-  delay(50);
-
+  while(!Serial);
   Serial1.begin(9600);
   e220ttl.begin();
 
