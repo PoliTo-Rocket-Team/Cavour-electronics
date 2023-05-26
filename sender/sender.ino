@@ -10,16 +10,16 @@
 #define SEND_TIMEOUT 500
 #define COM_DELAY 100
 #define OUTPUT_FILE "log.txt"
-#define ERROR_LEDS 1
+#define ERROR_LEDS 0
 
 void read_P_T();
 void changeFrequency(unsigned freq);
 
 struct RocketData {
-  float acc_lin[3];
-  float acc_ang[3];
   float pressure;
   float temperature;
+  float ax, ay, az;
+  float gx, gy, gz;
 } packet;
 
 LoRa_E220 e220ttl(&Serial1, 2, 4, 6); //  RX AUX M0 M1
@@ -29,8 +29,6 @@ File myFile;
 
 ResponseContainer incoming;
 
-float ax, ay, az, gx, gy, gz;
-float pressure, temperature;
 char data_line[140];
 
 void setup() {
@@ -90,6 +88,7 @@ void setup() {
       incoming = e220ttl.receiveMessage();
     else 
       e220ttl.sendMessage("C");
+    delay(COM_DELAY);
   }
 }
 
@@ -122,23 +121,13 @@ void loop() {
     if(myFile) myFile.close();
 
     read_P_T();
-    packet.pressure = pressure;
-    packet.temperature = temperature;
-
     // send new data if possible, old otherwise
     bool old = true;
     if (IMU.accelerationAvailable() && IMU.gyroscopeAvailable()) {
-      IMU.readAcceleration(ax,ay,az);
-      IMU.readGyroscope(gx,gy,gz);
+      IMU.readAcceleration(packet.ax,packet.ay,packet.az);
+      IMU.readGyroscope(packet.gx,packet.gy,packet.gz);
       old = false;
     }
-    packet.acc_lin[0] = ax;
-    packet.acc_lin[1] = ay;
-    packet.acc_lin[2] = az;
-  
-    packet.acc_ang[0] = gx;
-    packet.acc_ang[1] = gy;
-    packet.acc_ang[2] = gz;
 
     // send code  
 
@@ -150,8 +139,10 @@ void loop() {
     Serial.print("Data sent");
 
     if(myFile = SD.open(OUTPUT_FILE, FILE_WRITE)) { // if file can be opened, save
-      if(old) sprintf(data_line, "%u,%.6f,%.6f,NaN,NaN,NaN,NaN,NaN,NaN", millis(), pressure, temperature);
-      else sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), pressure, temperature, ax,ay,az, gx,gy,gz);
+      sprintf(data_line, "%u,%.6f,%.6f,NaN,NaN,NaN,NaN,NaN,NaN", millis(), packet.pressure, packet.temperature);
+      sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), packet.pressure, packet.temperature, 
+                                                                       packet.ax, packet.ay, packet.az, 
+                                                                       packet.gx, packet.gy, packet.gz);
       myFile.println(data_line);
     }
   }
@@ -163,12 +154,14 @@ void loop() {
     // surely here the file is open
     read_P_T();
     if (IMU.accelerationAvailable() && IMU.gyroscopeAvailable()) {
-      IMU.readAcceleration(ax,ay,az);
-      IMU.readGyroscope(gx,gy,gz);
-      sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), pressure, temperature, ax,ay,az, gx,gy,gz);
+      IMU.readAcceleration(packet.ax,packet.ay,packet.az);
+      IMU.readGyroscope(packet.gx,packet.gy,packet.gz);
+      sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), packet.pressure, packet.temperature, 
+                                                                       packet.ax, packet.ay, packet.az, 
+                                                                       packet.gx, packet.gy, packet.gz);
     }
     else {
-      sprintf(data_line, "%u,%.6f,%.6f,NaN,NaN,NaN,NaN,NaN,NaN", pressure, temperature);
+      sprintf(data_line, "%u,%.6f,%.6f,NaN,NaN,NaN,NaN,NaN,NaN", millis(), packet.pressure, packet.temperature);
     }
     myFile.println(data_line);
   }
@@ -178,8 +171,8 @@ void loop() {
 
 
 void read_P_T() {
-  pressure = (bmp1.readPressure() + bmp2.readPressure()) * 0.5e-2;
-  temperature = (bmp1.readTemperature() + bmp2.readTemperature()) * 0.5;
+  packet.pressure = (bmp1.readPressure() + bmp2.readPressure()) * 0.5e-2;
+  packet.temperature = (bmp1.readTemperature() + bmp2.readTemperature()) * 0.5;
 }
 
 
