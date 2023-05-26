@@ -12,6 +12,9 @@
 #define OUTPUT_FILE "log.txt"
 #define ERROR_LEDS 1
 
+void read_P_T();
+void changeFrequency(unsigned freq);
+
 struct RocketData {
   float acc_lin[3];
   float acc_ang[3];
@@ -31,7 +34,7 @@ float pressure, temperature;
 char data_line[140];
 
 void setup() {
-  Serial.begin(9600)
+  Serial.begin(9600);
   Serial1.begin(9600);
   e220ttl.begin();
 
@@ -79,11 +82,11 @@ void setup() {
     }
   }
 
-  myFile = SD.open(OUTPUT_FILE, FILE_APPEND);
+  myFile = SD.open(OUTPUT_FILE, FILE_WRITE);
 
   incoming.data = "A";
   while(incoming.data[0] != 'C') {
-    if(e220ttl.available() 
+    if(e220ttl.available())
       incoming = e220ttl.receiveMessage();
     else 
       e220ttl.sendMessage("C");
@@ -119,8 +122,8 @@ void loop() {
     if(myFile) myFile.close();
 
     read_P_T();
-    packet.barometer = pressure;
-    packet.temperature = temperature
+    packet.pressure = pressure;
+    packet.temperature = temperature;
 
     // send new data if possible, old otherwise
     bool old = true;
@@ -146,16 +149,16 @@ void loop() {
     ResponseStatus rs = e220ttl.sendMessage(str);
     Serial.print("Data sent");
 
-    if(myFile = SD.open(OUTPUT_FILE, FILE_APPEND)) { // if file can be opened, save
+    if(myFile = SD.open(OUTPUT_FILE, FILE_WRITE)) { // if file can be opened, save
       if(old) sprintf(data_line, "%u,%.6f,%.6f,NaN,NaN,NaN,NaN,NaN,NaN", millis(), pressure, temperature);
       else sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), pressure, temperature, ax,ay,az, gx,gy,gz);
-      myFile.println(data_line)
+      myFile.println(data_line);
     }
   }
   else {                                    // write to SD
     // try once to open file
     if(!myFile) 
-      if(!(myFile = SD.open(OUTPUT_FILE, FILE_APPEND)))
+      if(!(myFile = SD.open(OUTPUT_FILE, FILE_WRITE)))
         return; // do not even read data if file is not available
     // surely here the file is open
     read_P_T();
@@ -175,7 +178,7 @@ void loop() {
 
 
 void read_P_T() {
-  pressure = (bmp1.readPressure() + bmp2.readPressure()) * 0.5e-2
+  pressure = (bmp1.readPressure() + bmp2.readPressure()) * 0.5e-2;
   temperature = (bmp1.readTemperature() + bmp2.readTemperature()) * 0.5;
 }
 
@@ -202,14 +205,15 @@ void changeFrequency(unsigned freq) {
 
     if(!e220ttl.available()) continue;
 
-    Serial.print("Message received -> ");   // LOG - TO BE ELIMINATED
     incoming = e220ttl.receiveMessage();
-    if (incoming.status.code!=1) 
-      Serial.print("error: ")
-      Serial.println(rc.status.getResponseDescription());
-    } else {  // print received data
-      Serial.print("raw: ");
-      Serial.println(rc.data);
+    Serial.print("Message received -> ");   // LOG - TO BE ELIMINATED
+    if (incoming.status.code!=1) {
+      Serial.print("error: ");
+      Serial.println(incoming.status.getResponseDescription());
     }
-  } while(rc.data[0] != 'C');
+    else {  // print received data
+      Serial.print("raw: ");
+      Serial.println(incoming.data);
+    }
+  } while(incoming.data[0] != 'C');
 }
