@@ -33,6 +33,8 @@ char data_line[140];
 
 void setup() {
   Serial.begin(9600);
+  delay(50);
+
   Serial1.begin(9600);
   e220ttl.begin();
 
@@ -48,6 +50,7 @@ void setup() {
   }
 
   if (!IMU.begin()) {
+    Serial.println("Errore IMU");
     while (1) {
       #if ERROR_LEDS
       digitalWrite(5, HIGH);
@@ -59,6 +62,7 @@ void setup() {
   }
 
   if (!bmp1.begin(0x76)) {
+    Serial.println("Errore bmp1");
     while (1) {
       #if ERROR_LEDS
       digitalWrite(6, HIGH);
@@ -70,6 +74,7 @@ void setup() {
   }
 
   if (!bmp2.begin(0x77)) {
+    Serial.println("Errore bmp2");
     while (1) {
       #if ERROR_LEDS
       digitalWrite(7, HIGH);
@@ -86,8 +91,10 @@ void setup() {
   while(incoming.data[0] != 'C') {
     if(e220ttl.available())
       incoming = e220ttl.receiveMessage();
-    else 
+    else {
+      Serial.println("Send [C]");
       e220ttl.sendMessage("C");
+    }
     delay(COM_DELAY);
   }
 }
@@ -134,7 +141,7 @@ void loop() {
     char str[2 + sizeof(RocketData)];
     str[0] = 'D';
     str[1 + sizeof(RocketData)] = '\0';
-    memcpy(&str, (void*) &packet, sizeof(RocketData) + 1);
+    memcpy((&str) + 1, (void*) &packet, sizeof(RocketData));
     ResponseStatus rs = e220ttl.sendMessage(str);
     Serial.print("Data sent");
 
