@@ -3,6 +3,11 @@
 
 #define DELAY 500
 #define FCHANGE_TIMEOUT 5000
+#define TX_LED 10
+#define RX_LED 12
+
+void handleData(ResponseStructContainer &msg);
+void changeFrequency(long f);
 
 struct Messaggione {
   char code;
@@ -19,8 +24,6 @@ struct Messaggione {
 LoRa_E220 e220ttl(&Serial1, 2, 4, 6);  //  RX AUX M0 M1
 
 
-void handleData(ResponseStructContainer &msg);
-void changeFrequency(long f);
 
 void setup() {
   Serial.begin(9600);
@@ -32,7 +35,7 @@ void setup() {
 void loop() {
   if (e220ttl.available()) {
 		ResponseStructContainer rsc = e220ttl.receiveMessageRSSI(sizeof(Messaggione));
-    switch(rsc.data[0]) {
+    switch(rsc.data[0]) { //QUI NON COMPILA PERCHÉ DATA É VOID POINTER!
       case 'C':
       {
         e220ttl.sendMessage("C");
@@ -51,37 +54,40 @@ void loop() {
     char cmd = Serial.read();
     switch(cmd) {
       case 'F': {
-        long freq = Serial.parseInt();
-        changeFrequency(freq);
+        long f = Serial.parseInt();
+        changeFrequency(f);
         break
       }
     }
   }
-  delay(DELAY);
+  delay(DELAY); //CI SERVE QUESTO DELAY?
 }
 
-void changeFrequency(long f) {
-
-
+void changeFrequency(long freq) {
   ResponseStructContainer c;
+  Configuration config;
+  ResponseStatus rs;
+  ResponseContainer incoming;
+  bool ok;
+  unsigned int old_freq;
+  
+  digitalWrite(TX_LED, HIGH);
   c = e220ttl.getConfiguration();
-  // It's important get configuration pointer before all other operation
-  Configuration configuration = *(Configuration*) c.data;
-  // TODO turn on led
+  config = *(Configuration*) c.data;
+  c.close();
+  old_freq = config.CHAN;
 
   char msg[] = "F0";
-  msg[1] = f;
-  bool ok = false;
-  ResponseContainer incoming;
+  msg[1] = freq;
 
+  ok = false;
   while(1) {
     e220ttl.sendMessage(msg);
-
-    // TODO - change to new frequecy
-
+    config.CHAN = freq;
+    rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
     long start = millis();
     do {
-      delay(250);
+      delay(250); //CI SERVE QUESTO DELAY?
       if(e220ttl.available()) {
         incoming = e220ttl.receiveMessage();
         if(incoming.data[0] == 'C' || incoming.data[0] == 'D'){
@@ -93,10 +99,10 @@ void changeFrequency(long f) {
 
     if(ok) break;
 
-    // TODO set old frequency
+    config.CHAN = old_freq;
+    rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
   }
-
-  // TODO turn off led
+  digitalWrite(TX_LED, LOW);
 }
 
 void handleData(ResponseStructContainer &msg) {

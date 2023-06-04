@@ -1,16 +1,18 @@
 #include <Arduino_LSM9DS1.h>
-#include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
+#include "LoRa_E220.h"
+#include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
-#include "LoRa_E220.h"
 
 #define SAMPLE_DELAY 50
 #define SEND_TIMEOUT 500
 #define COM_DELAY 100
 #define OUTPUT_FILE "log.txt"
-#define ERROR_LEDS 0
+#define TX_LED 5
+#define RX_LED 6
+#define SD_LED 7
 
 void read_P_T();
 void changeFrequency(unsigned freq);
@@ -23,7 +25,10 @@ struct Messaggione {
   float gx, gy, gz;
 } packet;
 
-LoRa_E220 e220ttl(&Serial1, 2, 4, 6); //  RX AUX M0 M1
+char data_line[140];
+bool old;
+
+LoRa_E220 e220ttl(&Serial1, 4, 2, 3); //  RX AUX M0 M1
 Adafruit_BMP280 bmp1;
 Adafruit_BMP280 bmp2;
 File myFile;
@@ -33,55 +38,52 @@ ResponseContainer incoming;
 char data_line[140];
 
 void setup() {
+  pinMode(TX_LED, OUTPUT);
+  pinMode(RX_LED, OUTPUT);
+  pinMode(SD_LED, OUTPUT);
+
   Serial.begin(9600);
   while(!Serial);
   Serial1.begin(9600);
   e220ttl.begin();
 
-#if ERROR_LEDS
-  pinMode(5, OUTPUT);
-  pinMode(6, OUTPUT);
-  pinMode(7, OUTPUT);
-#endif
-
   if (!SD.begin(A0)) {
     Serial.println("Errore di inizializzazione della scheda SD");
-    return;
+    while (1) {
+      digitalWrite(SD_LED, HIGH);
+      delay(1000);
+      digitalWrite(SD_LED, LOW);
+      delay(1000);
+    }
   }
-
+  
   if (!IMU.begin()) {
     Serial.println("Errore IMU");
     while (1) {
-      #if ERROR_LEDS
-      digitalWrite(5, HIGH);
-      delay(500);
-      digitalWrite(5, LOW);
-      #endif
-      delay(500);
+      digitalWrite(SD_LED, HIGH);
+      delay(200);
+      digitalWrite(SD_LED, LOW);
+      delay(200);
     }
   }
 
   if (!bmp1.begin(0x76)) {
     Serial.println("Errore bmp1");
     while (1) {
-      #if ERROR_LEDS
-      digitalWrite(6, HIGH);
-      delay(500);
-      digitalWrite(6, LOW);
-      #endif
-      delay(500);
+      digitalWrite(SD_LED, HIGH);
+      delay(2000);
+      digitalWrite(SD_LED, LOW);
+      delay(2000);
     }
   }
 
   if (!bmp2.begin(0x77)) {
     Serial.println("Errore bmp2");
     while (1) {
-      #if ERROR_LEDS
-      digitalWrite(7, HIGH);
-      delay(500);
-      digitalWrite(7, LOW);
-      #endif
-      delay(500);
+      digitalWrite(SD_LED, HIGH);
+      delay(3000);
+      digitalWrite(SD_LED, LOW);
+      delay(3000);
     }
   }
 
@@ -186,11 +188,10 @@ void read_P_T() {
 void changeFrequency(unsigned freq) {
   ResponseStructContainer c;
   c = e220ttl.getConfiguration();
-  // It's important get configuration pointer before all other operation
-  Configuration configuration = *(Configuration*) c.data;
-
-  // TODO change frequency
-
+  Configuration config = *(Configuration*) c.data;
+  config.CHAN = freq;
+  c.close();
+  ResponseStatus rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
 
   ResponseStatus outgoing;
   incoming.data = "A";
