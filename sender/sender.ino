@@ -146,8 +146,8 @@ void loop() {
     Serial.print("Data sent");
 
     if(myFile = SD.open(OUTPUT_FILE, FILE_WRITE)) { // if file can be opened, save
-      sprintf(data_line, "%u,%.6f,%.6f,NaN,NaN,NaN,NaN,NaN,NaN", millis(), packet.pressure, packet.temperature);
-      sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), packet.pressure, packet.temperature, 
+      if(old) sprintf(data_line, "%u,%.6f,%.6f,NaN,NaN,NaN,NaN,NaN,NaN", millis(), packet.pressure, packet.temperature);
+      else sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), packet.pressure, packet.temperature, 
                                                                        packet.ax, packet.ay, packet.az, 
                                                                        packet.gx, packet.gy, packet.gz);
       myFile.println(data_line);
