@@ -15,7 +15,8 @@
 void read_P_T();
 void changeFrequency(unsigned freq);
 
-struct RocketData {
+struct Messaggione {
+  char code;
   float pressure;
   float temperature;
   float ax, ay, az;
@@ -136,12 +137,12 @@ void loop() {
     }
 
     // send code  
-
-    char str[2 + sizeof(RocketData)];
-    str[0] = 'D';
-    str[1 + sizeof(RocketData)] = '\0';
-    memcpy((&str) + 1, (void*) &packet, sizeof(RocketData));
-    ResponseStatus rs = e220ttl.sendMessage(str);
+    packet.code = 'D';
+    // char str[2 + sizeof(Messaggione)];
+    // str[0] = 'D';
+    // str[1 + sizeof(Messaggione)] = '\0';
+    // memcpy((&str) + 1, (void*) &packet, sizeof(Messaggione));
+    ResponseStatus rs = e220ttl.sendMessage((char*) &packet, sizeof(Messaggione));
     Serial.print("Data sent");
 
     if(myFile = SD.open(OUTPUT_FILE, FILE_WRITE)) { // if file can be opened, save
@@ -187,13 +188,9 @@ void changeFrequency(unsigned freq) {
   c = e220ttl.getConfiguration();
   // It's important get configuration pointer before all other operation
   Configuration configuration = *(Configuration*) c.data;
-  Serial.println(c.status.getResponseDescription());
-  Serial.println(c.status.code);
 
-  Serial.print("Mi hai detto che la frequenza e' \t");
-  Serial.println(freq);
+  // TODO change frequency
 
-  // printParameters(configuration);
 
   ResponseStatus outgoing;
   incoming.data = "A";
