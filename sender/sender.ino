@@ -14,16 +14,26 @@
 #define RX_LED 6
 #define SD_LED 7
 
-void read_P_T();
+void readPT();
+void readAG();
+void sendData();
 void changeFrequency(unsigned freq);
 
-struct Messaggione {
+struct RocketData {
   char code;
-  float pressure;
-  float temperature;
-  float ax, ay, az;
-  float gx, gy, gz;
+  byte bar[4];
+  byte temp[4];
+  byte ax[4];
+  byte ay[4];
+  byte az[4];
+  byte gx[4];
+  byte gy[4];
+  byte gz[4];
 } packet;
+
+float ax, ay, az;
+float gx, gy, gz;
+float bar, temp;
 
 char data_line[140];
 bool old;
@@ -35,20 +45,21 @@ File myFile;
 
 ResponseContainer incoming;
 
-char data_line[140];
 
 void setup() {
   pinMode(TX_LED, OUTPUT);
   pinMode(RX_LED, OUTPUT);
   pinMode(SD_LED, OUTPUT);
 
-  Serial.begin(9600);
+  Serial.begin(9600);   // LOG - TO BE ELIMINATED 
   while(!Serial);
+
+  
   Serial1.begin(9600);
   e220ttl.begin();
 
   if (!SD.begin(A0)) {
-    Serial.println("Errore di inizializzazione della scheda SD");
+    Serial.println("Errore di inizializzazione della scheda SD");   // LOG - TO BE ELIMINATED
     while (1) {
       digitalWrite(SD_LED, HIGH);
       delay(1000);
@@ -58,7 +69,7 @@ void setup() {
   }
   
   if (!IMU.begin()) {
-    Serial.println("Errore IMU");
+    Serial.println("Errore IMU");   // LOG - TO BE ELIMINATED
     while (1) {
       digitalWrite(SD_LED, HIGH);
       delay(200);
@@ -68,7 +79,7 @@ void setup() {
   }
 
   if (!bmp1.begin(0x76)) {
-    Serial.println("Errore bmp1");
+    Serial.println("Errore bmp1");   // LOG - TO BE ELIMINATED
     while (1) {
       digitalWrite(SD_LED, HIGH);
       delay(2000);
@@ -78,7 +89,7 @@ void setup() {
   }
 
   if (!bmp2.begin(0x77)) {
-    Serial.println("Errore bmp2");
+    Serial.println("Errore bmp2");   // LOG - TO BE ELIMINATED
     while (1) {
       digitalWrite(SD_LED, HIGH);
       delay(3000);
@@ -87,15 +98,16 @@ void setup() {
     }
   }
 
-  myFile = SD.open(OUTPUT_FILE, FILE_WRITE);
+  if(myFile = SD.open(OUTPUT_FILE, FILE_WRITE)) Serial.println("File opened!");   // LOG - TO BE ELIMINATED
 
   incoming.data = "A";
   while(incoming.data[0] != 'C') {
     if(e220ttl.available())
       incoming = e220ttl.receiveMessage();
     else {
-      Serial.println("Send [C]");
-      e220ttl.sendMessage("C");
+      Serial.println("Send [C]");   // LOG - TO BE ELIMINATED
+      packet.code = 'C';
+      e220ttl.sendMessage(&packet, sizeof(RocketData));
     }
     delay(COM_DELAY);
   }
@@ -109,7 +121,7 @@ void loop() {
     Serial.print("Message received -> ");   // LOG - TO BE ELIMINATED
     incoming = e220ttl.receiveMessage();
     if (incoming.status.code != 1){
-      Serial.print("error: ");
+      Serial.print("error: "); 
       Serial.println(incoming.status.getResponseDescription());
     } else {  // print received data
       Serial.print("raw: ");
@@ -119,91 +131,81 @@ void loop() {
           changeFrequency(incoming.data[1]);
           break;
         default:
-          Serial.println("Unrecognized command");
+          Serial.println("Unrecognized command");   // LOG - TO BE ELIMINATED
       }
     }
   }
 
-  elapsed = last_send - millis();
-  if(elapsed > SEND_TIMEOUT) {              // must send data
-    last_send = millis();
-    if(myFile) myFile.close();
-
-    read_P_T();
-    // send new data if possible, old otherwise
-    bool old = true;
-    if (IMU.accelerationAvailable() && IMU.gyroscopeAvailable()) {
-      IMU.readAcceleration(packet.ax,packet.ay,packet.az);
-      IMU.readGyroscope(packet.gx,packet.gy,packet.gz);
-      old = false;
-    }
-
-    // send code  
-    packet.code = 'D';
-    // char str[2 + sizeof(Messaggione)];
-    // str[0] = 'D';
-    // str[1 + sizeof(Messaggione)] = '\0';
-    // memcpy((&str) + 1, (void*) &packet, sizeof(Messaggione));
-    ResponseStatus rs = e220ttl.sendMessage((char*) &packet, sizeof(Messaggione));
-    Serial.print("Data sent");
-
-    if(myFile = SD.open(OUTPUT_FILE, FILE_WRITE)) { // if file can be opened, save
-      if(old) sprintf(data_line, "%u,%.6f,%.6f,NaN,NaN,NaN,NaN,NaN,NaN", millis(), packet.pressure, packet.temperature);
-      else sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), packet.pressure, packet.temperature, 
-                                                                       packet.ax, packet.ay, packet.az, 
-                                                                       packet.gx, packet.gy, packet.gz);
-      myFile.println(data_line);
-    }
+  // get sensor data, format string, write to SD
+  old = true;
+  readPT();
+  if (IMU.accelerationAvailable() && IMU.gyroscopeAvailable()) {
+    readAG();
+    old = false;
   }
-  else {                                    // write to SD
-    // try once to open file
-    if(!myFile) 
-      if(!(myFile = SD.open(OUTPUT_FILE, FILE_WRITE)))
-        return; // do not even read data if file is not available
-    // surely here the file is open
-    read_P_T();
-    if (IMU.accelerationAvailable() && IMU.gyroscopeAvailable()) {
-      IMU.readAcceleration(packet.ax,packet.ay,packet.az);
-      IMU.readGyroscope(packet.gx,packet.gy,packet.gz);
-      sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), packet.pressure, packet.temperature, 
-                                                                       packet.ax, packet.ay, packet.az, 
-                                                                       packet.gx, packet.gy, packet.gz);
-    }
-    else {
-      sprintf(data_line, "%u,%.6f,%.6f,NaN,NaN,NaN,NaN,NaN,NaN", millis(), packet.pressure, packet.temperature);
-    }
+  if (old) sprintf(data_line, "%u,%.6f,%.6f,NaN,NaN,NaN,NaN,NaN,NaN", millis(), bar, temp);
+  else sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), bar, temp, ax, ay, az, gx, gy, gz);
+
+  if(myFile) {
     myFile.println(data_line);
-  }
+    Serial.println("Data saved to SD");   // LOG - TO BE ELIMINATED 
+  } else Serial.println("Could not open file");   // LOG - TO BE ELIMINATED
 
+  // if SEND_TIMEOUT elapsed, send data and flush SD 
+  elapsed = last_send - millis();
+  if (elapsed > SEND_TIMEOUT) {
+    last_send = millis();
+    if (myFile) myFile.flush();
+    sendData();
+  }
   delay(SAMPLE_DELAY); 
 }
 
 
-void read_P_T() {
-  packet.pressure = (bmp1.readPressure() + bmp2.readPressure()) * 0.5e-2;
-  packet.temperature = (bmp1.readTemperature() + bmp2.readTemperature()) * 0.5;
+void readPT() {
+  bar = (bmp1.readPressure() + bmp2.readPressure()) * 0.5e-2;
+  temp = (bmp1.readTemperature() + bmp2.readTemperature()) * 0.5;
 }
 
+void readAG() {
+  IMU.readAcceleration(ax, ay, az);
+  IMU.readGyroscope(gx, gy, gz);
+}
+
+void sendData() {
+  packet.code = 'D';
+  *(float*) packet.bar = bar;
+  *(float*) packet.temp = temp;
+  *(float*) packet.ax = ax;
+  *(float*) packet.ay = ay;
+  *(float*) packet.az = az;
+  *(float*) packet.gx = gx;
+  *(float*) packet.gy = gy;
+  *(float*) packet.gz = gz;
+  ResponseStatus rs = e220ttl.sendMessage(&packet, sizeof(RocketData));
+  Serial.println(rs.getResponseDescription());   // LOG - TO BE ELIMINATED
+}
 
 void changeFrequency(unsigned freq) {
-  ResponseStructContainer c;
-  c = e220ttl.getConfiguration();
+  ResponseStructContainer c = e220ttl.getConfiguration();
   Configuration config = *(Configuration*) c.data;
-  config.CHAN = freq;
   c.close();
+  config.CHAN = freq;
   ResponseStatus rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
 
   ResponseStatus outgoing;
   incoming.data = "A";
   do {
-    outgoing = e220ttl.sendMessage("C");
-    Serial.println(outgoing.getResponseDescription());
+    packet.code = 'D';
+    outgoing = e220ttl.sendMessage(&packet, sizeof(RocketData));
+    Serial.println(outgoing.getResponseDescription());   // LOG - TO BE ELIMINATED
     delay(COM_DELAY);
 
+    // LOG - TO BE ELIMINATED
     if(!e220ttl.available()) continue;
 
     incoming = e220ttl.receiveMessage();
-    Serial.print("Message received -> ");   // LOG - TO BE ELIMINATED
+    Serial.print("Message received -> ");
     if (incoming.status.code!=1) {
       Serial.print("error: ");
       Serial.println(incoming.status.getResponseDescription());
@@ -212,5 +214,6 @@ void changeFrequency(unsigned freq) {
       Serial.print("raw: ");
       Serial.println(incoming.data);
     }
+    // LOG - TO BE ELIMINATED
   } while(incoming.data[0] != 'C');
 }
