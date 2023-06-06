@@ -1,16 +1,19 @@
 #include <Arduino_LSM9DS1.h>
-#include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
+#include "LoRa_E220.h"
+#include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
-#include "LoRa_E220.h"
 
 #define SAMPLE_DELAY 50
 #define SEND_TIMEOUT 500
 #define COM_DELAY 300
 #define OUTPUT_FILE "log.txt"
 
+void readPT();
+void readAG();
+void sendData();
 void changeFrequency(unsigned freq);
 
 struct RocketData {
@@ -32,12 +35,31 @@ Adafruit_BMP280 bmp2;
 ResponseContainer incoming;
 ResponseStatus rs;
 
+File myFile;
+ResponseContainer incoming;
+ResponseStatus rs;
+
+float ax, ay, az;
+float gx, gy, gz;
+float bar, temp;
+char data_line[140];
+
+
 void setup() {
   Serial.begin(9600);
   while (!Serial);
 
   Serial1.begin(9600);
-  e220ttl.begin();
+
+  if (!e220ttl.begin()) {
+    Serial.println("Could not initialize LoRa module :(");
+    while(1);
+  }
+
+  if (!SD.begin(A0)) {
+    Serial.println("Could not initialize SD card :(");
+    while(1);
+  }
 
   if (!IMU.begin()) {
     Serial.println("Errore IMU");
@@ -52,6 +74,11 @@ void setup() {
   if (!bmp2.begin(0x77)) {
     Serial.println("Errore bmp2");
     while (1);
+  }
+
+  if(!(myFile = SD.open(OUTPUT_FILE, FILE_WRITE))) {
+    Serial.println("Could not open file :(");
+    while(1);
   }
 
   ResponseStructContainer c = e220ttl.getConfiguration();
@@ -88,8 +115,7 @@ void setup() {
 void loop() {
   static unsigned long last_send = millis();
   static unsigned long elapsed;
-
-  float ax, ay, az, gx, gy, gz, bar, temp;
+  bool old;
 
   if (e220ttl.available()) {
     Serial.print("Message received -> ");  // LOG - TO BE ELIMINATED
@@ -110,20 +136,35 @@ void loop() {
     }
   }
 
+  old = true;
   if (IMU.accelerationAvailable() && IMU.gyroscopeAvailable()) {
-    IMU.readAcceleration(ax, ay, az);
-    IMU.readGyroscope(gx, gy, gz);
+    readAG();
+    old = false;
   }
+  readPT();
+  
+  if (old) sprintf(data_line, "%u,%.6f,%.6f,NaN,NaN,NaN,NaN,NaN,NaN", millis(), bar, temp);
+  else sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), bar, temp, ax, ay, az, gx, gy, gz);
 
-  bar = (bmp1.readPressure() + bmp2.readPressure()) * 0.5e-2;
-  temp = (bmp1.readTemperature() + bmp2.readTemperature()) * 0.5;
-
-  sendData(ax, ay, az, gx, gy, gz, bar, temp);
-
-  delay(500);
+  if (myFile) {
+    myFile.println(data_line);
+    Serial.println("Data written to SD card");
+  } else Serial.println("File is not open!");
+  
+  elapsed = last_send - millis();
+  if (elapsed > SEND_TIMEOUT) {
+    last_send = millis();
+    if (myFile) {
+      myFile.flush();
+      Serial.println("SD card flushed");
+    }
+    sendData();
+  }
+  
+  delay(SAMPLE_DELAY);
 }
 
-void sendData(float ax, float ay, float az, float gx, float gy, float gz, float bar, float temp) {
+void sendData() {
   packet.code = 'D';
   *(float*)packet.ax = ax;
   *(float*)packet.ay = ay;
@@ -137,6 +178,16 @@ void sendData(float ax, float ay, float az, float gx, float gy, float gz, float 
   ResponseStatus rs = e220ttl.sendMessage(&packet, sizeof(RocketData));
   Serial.println("Transmitting data");
   Serial.println(rs.getResponseDescription());
+}
+
+void readAG() {
+  IMU.readAcceleration(ax, ay, az);
+  IMU.readGyroscope(gx, gy, gz);
+}
+
+void readPT() {
+  bar = (bmp1.readPressure()+bmp2.readPressure())*0.5e-2;
+  temp = (bmp1.readTemperature()+bmp2.readTemperature())*0.5;
 }
 
 void changeFrequency(unsigned freq) {
