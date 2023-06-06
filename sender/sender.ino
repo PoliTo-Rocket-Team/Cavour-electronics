@@ -196,7 +196,7 @@ void changeFrequency(unsigned freq) {
   ResponseStatus outgoing;
   incoming.data = "A";
   do {
-    packet.code = 'D';
+    packet.code = 'C';
     outgoing = e220ttl.sendMessage(&packet, sizeof(RocketData));
     Serial.println(outgoing.getResponseDescription());   // LOG - TO BE ELIMINATED
     delay(COM_DELAY);
