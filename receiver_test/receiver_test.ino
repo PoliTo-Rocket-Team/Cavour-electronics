@@ -106,9 +106,15 @@ void changeFrequency(unsigned freq) {
   msg[1] = freq;
 
   ok = false;
+  int counter = 0;
   while(1) {
-    rs = e220ttl.sendMessage(msg);
-    Serial.println(rs.getResponseDescription());
+    for (int i = 0; i < 5; i++) {
+      rs = e220ttl.sendMessage(msg);
+      Serial.print("Attempt ");
+      Serial.println(i);
+      Serial.println(rs.getResponseDescription());
+      delay(50);
+    }
     config.CHAN = freq;
     Serial.println("Switching to new frequency");
     rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
@@ -135,9 +141,14 @@ void changeFrequency(unsigned freq) {
     config.CHAN = old_freq;
     rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
     Serial.println(rs.getResponseDescription());
+    
+    counter++;
+    if(counter == 10) break;
+
   }
   digitalWrite(TX_LED, LOW);
-  Serial.println("Frequency change completed");
+  if (ok) Serial.println("Frequency change completed");
+  else Serial.println("Could not change frequency in 10 attempts");
 }
 
 void handleData(struct RocketData packet) {
