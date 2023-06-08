@@ -6,10 +6,10 @@
 #include <SPI.h>
 #include <SD.h>
 
-#define SAMPLE_DELAY 50
 #define SEND_TIMEOUT 500
 #define COM_DELAY 300
 #define OUTPUT_FILE "log.txt"
+#define SAMPLE_DELAY 40
 
 void readPT();
 void readAG();
@@ -34,16 +34,16 @@ Adafruit_BMP280 bmp2;
 
 ResponseContainer incoming;
 ResponseStatus rs;
-
 File myFile;
-ResponseContainer incoming;
-ResponseStatus rs;
+
 
 float ax, ay, az;
 float gx, gy, gz;
 float bar, temp;
 char data_line[140];
-
+static unsigned long last_send;
+static unsigned long elapsed;
+bool old;
 
 void setup() {
   Serial.begin(9600);
@@ -110,12 +110,10 @@ void setup() {
     }
     delay(COM_DELAY);
   }
+  last_send = millis();
 }
 
 void loop() {
-  static unsigned long last_send = millis();
-  static unsigned long elapsed;
-  bool old;
 
   if (e220ttl.available()) {
     Serial.print("Message received -> ");  // LOG - TO BE ELIMINATED
@@ -135,32 +133,30 @@ void loop() {
       }
     }
   }
-
-  old = true;
-  if (IMU.accelerationAvailable() && IMU.gyroscopeAvailable()) {
-    readAG();
-    old = false;
-  }
+  readAG();
   readPT();
-  
-  if (old) sprintf(data_line, "%u,%.6f,%.6f,NaN,NaN,NaN,NaN,NaN,NaN", millis(), bar, temp);
-  else sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), bar, temp, ax, ay, az, gx, gy, gz);
+  sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), bar, temp, ax, ay, az, gx, gy, gz);
 
   if (myFile) {
+    Serial.print("Writing data to SD - ");
+    Serial.println(millis());
     myFile.println(data_line);
-    Serial.println("Data written to SD card");
+    Serial.print("Data written to SD card - ");
+    Serial.println(millis());
   } else Serial.println("File is not open!");
   
-  elapsed = last_send - millis();
+  elapsed = millis()-last_send;
   if (elapsed > SEND_TIMEOUT) {
     last_send = millis();
     if (myFile) {
+      Serial.print("Flushing SD - ");
+      Serial.println(millis());
       myFile.flush();
-      Serial.println("SD card flushed");
+      Serial.print("SD card flushed - ");
+      Serial.println(millis());
     }
     sendData();
   }
-  
   delay(SAMPLE_DELAY);
 }
 
@@ -175,9 +171,11 @@ void sendData() {
   *(float*)packet.bar = bar;
   *(float*)packet.temp = temp;
 
+  Serial.print("Transmitting data - ");
+  Serial.println(millis());
   ResponseStatus rs = e220ttl.sendMessage(&packet, sizeof(RocketData));
-  Serial.println("Transmitting data");
   Serial.println(rs.getResponseDescription());
+  Serial.println(millis());
 }
 
 void readAG() {
