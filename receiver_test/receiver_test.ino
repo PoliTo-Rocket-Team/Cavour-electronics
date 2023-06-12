@@ -1,8 +1,6 @@
 #include "Arduino.h"
 #include "LoRa_E220.h"
 
-#define TX_LED 10
-#define RX_LED 12
 #define FCHANGE_TIMEOUT 2000
 #define DELAY 100
 
@@ -24,23 +22,26 @@ struct RocketData {
 LoRa_E220 e220ttl(&Serial1, 2, 4, 6);  //  RX AUX M0 M1
 
 ResponseStatus rs;
+float reference;
+bool reference_flag = true;
 
 
 void setup() {
   Serial.begin(9600);
-  while (!Serial);
+  while (!Serial)
+    ;
   e220ttl.begin();
   Serial.println("Starting in 500 ms");
   delay(500);
 
   ResponseStructContainer c = e220ttl.getConfiguration();
-  Configuration config = *(Configuration*) c.data;
+  Configuration config = *(Configuration*)c.data;
   c.close();
   Serial.print("Old saved channel: ");
   Serial.println(config.CHAN);
   delay(200);
   Serial.println("Setting default frequency");
-  config.CHAN = 23;
+  config.CHAN = 76;
   delay(500);
   rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
   Serial.println(rs.getResponseDescription());
@@ -75,13 +76,13 @@ void loop() {
     char cmd = Serial.read();
     switch (cmd) {
       case 'F':
-      {
-        unsigned f = Serial.parseInt();
-        Serial.print("Changing frequency: ");
-        Serial.println(f);
-        changeFrequency(f);
-        break;
-      }
+        {
+          unsigned f = Serial.parseInt();
+          Serial.print("Changing frequency: ");
+          Serial.println(f);
+          changeFrequency(f);
+          break;
+        }
     }
   }
   delay(DELAY);
@@ -93,10 +94,9 @@ void changeFrequency(unsigned freq) {
   ResponseStructContainer incoming;
   bool ok;
   unsigned int old_freq;
-  
-  digitalWrite(TX_LED, HIGH);
+
   c = e220ttl.getConfiguration();
-  config = *(Configuration*) c.data;
+  config = *(Configuration*)c.data;
   c.close();
   old_freq = config.CHAN;
   Serial.print("Old frequency: ");
@@ -107,7 +107,7 @@ void changeFrequency(unsigned freq) {
 
   ok = false;
   int counter = 0;
-  while(1) {
+  while (1) {
     for (int i = 0; i < 5; i++) {
       rs = e220ttl.sendMessage(msg);
       Serial.print("Attempt ");
@@ -123,51 +123,57 @@ void changeFrequency(unsigned freq) {
     do {
       Serial.println("Waiting for ack");
       delay(100);
-      if(e220ttl.available()) {
+      if (e220ttl.available()) {
         Serial.println("I received something");
         incoming = e220ttl.receiveMessage(sizeof(RocketData));
         packet = *(RocketData*)incoming.data;
         incoming.close();
-        if(packet.code == 'C' || packet.code == 'D'){
+        if (packet.code == 'C' || packet.code == 'D') {
           Serial.println("Sending ack back");
           rs = e220ttl.sendMessage("C");
           ok = true;
         }
       }
-    } while(!ok && millis() - start < FCHANGE_TIMEOUT);
+    } while (!ok && millis() - start < FCHANGE_TIMEOUT);
 
-    if(ok) break;
+    if (ok) break;
     Serial.println("Switching back to old frequency");
     config.CHAN = old_freq;
     rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
     Serial.println(rs.getResponseDescription());
-    
-    counter++;
-    if(counter == 10) break;
 
+    counter++;
+    if (counter == 10) break;
   }
-  digitalWrite(TX_LED, LOW);
   if (ok) Serial.println("Frequency change completed");
   else Serial.println("Could not change frequency in 10 attempts");
 }
 
 void handleData(struct RocketData packet) {
-    Serial.print("\n");
-    Serial.print("Pressure:");
-    Serial.print(packet.bar);
-    Serial.print(",Temperature:");
-    Serial.print(packet.temp);
-    Serial.print(",ax:");
-    Serial.print(packet.ax);
-    Serial.print(",ay:");
-    Serial.print(packet.ay);
-    Serial.print(",az:");
-    Serial.print(packet.az);
-    Serial.print(",gx:");
-    Serial.print(packet.gx);
-    Serial.print(",gy:");
-    Serial.print(packet.gy);
-    Serial.print(",gz:");
-    Serial.print(packet.gz);
-    Serial.println();
+  if (reference_flag) {
+    reference = packet.bar;
+    reference_flag = false;
+  }
+  
+  float altitude = 44330 * (1.0 - pow(packet.bar / reference, 0.1903));
+  Serial.print("\n");
+  Serial.print("Altitude:");
+  Serial.print(altitude);
+  Serial.print(",Pressure:");
+  Serial.print(packet.bar);
+  Serial.print(",Temperature:");
+  Serial.print(packet.temp);
+  Serial.print(",ax:");
+  Serial.print(packet.ax);
+  Serial.print(",ay:");
+  Serial.print(packet.ay);
+  Serial.print(",az:");
+  Serial.print(packet.az);
+  Serial.print(",gx:");
+  Serial.print(packet.gx);
+  Serial.print(",gy:");
+  Serial.print(packet.gy);
+  Serial.print(",gz:");
+  Serial.print(packet.gz);
+  Serial.println();
 }
