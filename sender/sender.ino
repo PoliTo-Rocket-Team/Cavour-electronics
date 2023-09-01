@@ -21,8 +21,8 @@ void sendData();
 
 struct RocketData {
   char code;
-  byte bar[4];
-  byte temp[4];
+  byte bar1[4], bar2[4];
+  byte temp1[4], temp2[4];
   byte ax[4];
   byte ay[4];
   byte az[4];
@@ -41,8 +41,9 @@ ResponseStatus rs;
 
 float ax, ay, az;
 float gx, gy, gz;
-float bar, temp;
-char data_line[140];
+float bar1, bar2;
+float temp1, temp2;
+char data_line[160];
 static unsigned long last_send;
 static unsigned long elapsed;
 bool old;
@@ -143,7 +144,7 @@ void loop() {
   readAG();
   readPT();
 
-  sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), bar, temp, ax, ay, az, gx, gy, gz);
+  sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), bar1, bar2, temp1, temp2, ax, ay, az, gx, gy, gz);
 
   if (myFile) {
     digitalWrite(SD_LED, HIGH);
@@ -165,8 +166,10 @@ void loop() {
 
 
 void readPT() {
-  bar = (bmp1.readPressure()+bmp2.readPressure())*0.5e-2;
-  temp = (bmp1.readTemperature()+bmp2.readTemperature())*0.5;
+  bar1 = bmp1.readPressure()*0.01; 
+  bar2 = bmp2.readPressure()*0.01;
+  temp1 = bmp1.readTemperature();
+  temp2 = bmp2.readTemperature();
 }
 
 void readAG() {
@@ -182,8 +185,10 @@ void sendData() {
   *(float*)packet.gx = gx;
   *(float*)packet.gy = gy;
   *(float*)packet.gz = gz;
-  *(float*)packet.bar = bar;
-  *(float*)packet.temp = temp;
+  *(float*)packet.bar1 = bar1;
+  *(float*)packet.bar2 = bar2;
+  *(float*)packet.temp1 = temp1;
+  *(float*)packet.temp2 = temp2;
 
   ResponseStatus rs = e220ttl.sendMessage(&packet, sizeof(RocketData));
 }

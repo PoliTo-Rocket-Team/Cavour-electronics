@@ -9,8 +9,8 @@ void changeFrequency(unsigned f);
 
 struct RocketData {
   char code;
-  float bar;
-  float temp;
+  float bar1, bar2;
+  float temp1, temp2;
   float ax;
   float ay;
   float az;
@@ -151,18 +151,22 @@ void changeFrequency(unsigned freq) {
 
 void handleData(struct RocketData packet) {
   if (reference_flag) {
-    reference = packet.bar;
+    reference = (packet.bar1+packet.bar2)*0.5;
     reference_flag = false;
   }
   
-  float altitude = 44330 * (1.0 - pow(packet.bar / reference, 0.1903));
+  float altitude = 44330 * (1.0 - pow((packet.bar1+packet.bar2)*0.5 / reference, 0.1903));
   Serial.print("\n");
   Serial.print("Altitude:");
   Serial.print(altitude);
-  Serial.print(",Pressure:");
-  Serial.print(packet.bar);
-  Serial.print(",Temperature:");
-  Serial.print(packet.temp);
+  Serial.print(",Pressure1:");
+  Serial.print(packet.bar1);
+  Serial.print(",Pressure2:");
+  Serial.print(packet.bar2);
+  Serial.print(",Temperature1:");
+  Serial.print(packet.temp1);
+  Serial.print(",Temperature2:");
+  Serial.print(packet.temp2);
   Serial.print(",ax:");
   Serial.print(packet.ax);
   Serial.print(",ay:");
