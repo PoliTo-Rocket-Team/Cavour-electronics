@@ -41,12 +41,13 @@ void setup() {
   Serial.println(config.CHAN);
   delay(200);
   Serial.println("Setting default frequency");
-  config.CHAN = 76;
+  config.CHAN = 23;
   delay(500);
   rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
   Serial.println(rs.getResponseDescription());
   Serial.println();
   delay(500);
+  Serial.println("Altitude,\tAvgPressure,\tAvgTemperature,\tAx,\tAy,\tAz,\tGx,\tGy,\tGz");
 }
 
 void loop() {
@@ -64,7 +65,7 @@ void loop() {
         }
       case 'D':
         {
-          handleData(packet);
+         // handleData(packet);
           printData(packet);
           break;
         }
@@ -155,12 +156,12 @@ void handleData(struct RocketData packet) {
     reference = (packet.bar1+packet.bar2)*0.5;
     reference_flag = false;
   }
-  
+  /*
   float altitude = 44330 * (1.0 - pow((packet.bar1+packet.bar2)*0.5 / reference, 0.1903));
   Serial.print("\n");
   Serial.print("Altitude:");
   Serial.print(altitude);
-  /*
+  
   Serial.print(",Pressure1:");
   Serial.print(packet.bar1);
   Serial.print(",Pressure2:");
@@ -170,7 +171,7 @@ void handleData(struct RocketData packet) {
   Serial.print(packet.temp1);
   Serial.print(",Temperature2:");
   Serial.print(packet.temp2);
-  */
+  
 
   
   Serial.print(",PressureAverage:");
@@ -192,33 +193,41 @@ void handleData(struct RocketData packet) {
   Serial.print(packet.gy);
   Serial.print(",gz:");
   Serial.print(packet.gz);
-  Serial.println();
+  Serial.println();*/
 }
 
+//Serial Plotter
 void printData(struct RocketData packet){
-  
-   float altitude = 44330 * (1.0 - pow((packet.bar1+packet.bar2)*0.5 / reference, 0.1903));
-  Serial.print("\n");
-  Serial.print("Altitude:");
-  Serial.print(altitude);
-  Serial.print(",PressureAverage:");
-  Serial.print((packet.bar1+packet.bar2)/2);
-
-  Serial.print(",TemperatureAverage:");
-  Serial.print((packet.temp1+packet.temp2)/2);
-
-  
-  Serial.print(",ax:");
-  Serial.print(packet.ax);
-  Serial.print(",ay:");
-  Serial.print(packet.ay);
-  Serial.print(",az:");
-  Serial.print(packet.az);
-  Serial.print(",gx:");
-  Serial.print(packet.gx);
-  Serial.print(",gy:");
-  Serial.print(packet.gy);
-  Serial.print(",gz:");
-  Serial.print(packet.gz);
-}
-  
+  if (reference_flag) {
+    reference = (packet.bar1+packet.bar2)*0.5;
+    reference_flag = false;
+    
+  float altitude = 44330 * (1.0 - pow((packet.bar1+packet.bar2)*0.5 / reference, 0.1903));
+  // Serial.print("\n");
+  //Serial.print("Altitude:");
+   Serial.print(altitude);
+   Serial.print(" ");
+  // Serial.print(",PressureAverage:");
+   Serial.print((packet.bar1+packet.bar2)/2);
+   Serial.print(" ");
+  //Serial.print(",TemperatureAverage:");
+   Serial.println((packet.temp1+packet.temp2)/2);
+   Serial.print(" ");
+  // Serial.print(",ax:");
+   Serial.println(packet.ax);
+   Serial.print(" ");
+  // Serial.print(",ay:");
+   Serial.println(packet.ay);
+   Serial.print(" ");
+  // Serial.print(",az:");
+   Serial.println(packet.az);
+   Serial.print(" ");
+  // Serial.print(",gx:");
+   Serial.println(packet.gx);
+   Serial.print(" ");
+  // Serial.print(",gy:");
+   Serial.println(packet.gy);
+   Serial.print(" ");
+  // Serial.print(",gz:");
+   Serial.println(packet.gz);
+  }

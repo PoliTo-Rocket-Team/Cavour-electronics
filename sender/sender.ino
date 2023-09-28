@@ -111,7 +111,7 @@ void setup() {
   ResponseStructContainer c = e220ttl.getConfiguration();
   Configuration config = *(Configuration*)c.data;
   c.close();
-  config.CHAN = 76;
+  config.CHAN = 23;
   rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
   delay(500);
 
