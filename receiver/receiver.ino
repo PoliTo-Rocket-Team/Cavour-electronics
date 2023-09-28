@@ -159,14 +159,26 @@ void handleData(struct RocketData packet) {
   Serial.print("\n");
   Serial.print("Altitude:");
   Serial.print(altitude);
+  /*
   Serial.print(",Pressure1:");
   Serial.print(packet.bar1);
   Serial.print(",Pressure2:");
   Serial.print(packet.bar2);
+  
   Serial.print(",Temperature1:");
   Serial.print(packet.temp1);
   Serial.print(",Temperature2:");
   Serial.print(packet.temp2);
+  */
+
+  
+  Serial.print(",PressureAverage:");
+  Serial.print((packet.bar1+packet.bar2)/2);
+
+  Serial.print(",TemperatureAverage:");
+  Serial.print((packet.temp1+packet.temp2)/2);
+
+  
   Serial.print(",ax:");
   Serial.print(packet.ax);
   Serial.print(",ay:");
