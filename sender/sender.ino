@@ -55,22 +55,23 @@ void setup() {
   pinMode(SD_LED, OUTPUT);
 
   Serial1.begin(9600);
-
+  //while(!e220ttl);
+  delay(500);
   if (!e220ttl.begin()) {
     digitalWrite(TX_LED, HIGH);
     digitalWrite(RX_LED, HIGH);
     digitalWrite(SD_LED, HIGH);
     while (1);
   }
-
-  if (!SD.begin(A0)) {
-    while (1) {
-      digitalWrite(SD_LED, HIGH);
-      delay(1000);
-      digitalWrite(SD_LED, LOW);
-      delay(1000);
-    }
-  }
+//
+//  if (!SD.begin(A0)) {
+//    while (1) {
+//      digitalWrite(SD_LED, HIGH);
+//      delay(1000);
+//      digitalWrite(SD_LED, LOW);
+//      delay(1000);
+//    }
+//  }
 
   if (!IMU.begin()) {
     while (1) {
@@ -98,22 +99,22 @@ void setup() {
       delay(3000);
     }
   }
+//
+//  if(!(myFile = SD.open(OUTPUT_FILE, FILE_WRITE))) {
+//    while(1) {
+//      digitalWrite(SD_LED, HIGH);
+//      delay(4000);
+//      digitalWrite(SD_LED, LOW);
+//      delay(4000);
+//    }
+//  }
 
-  if(!(myFile = SD.open(OUTPUT_FILE, FILE_WRITE))) {
-    while(1) {
-      digitalWrite(SD_LED, HIGH);
-      delay(4000);
-      digitalWrite(SD_LED, LOW);
-      delay(4000);
-    }
-  }
-
-  ResponseStructContainer c = e220ttl.getConfiguration();
-  Configuration config = *(Configuration*)c.data;
-  c.close();
-  config.CHAN = 23;
-  rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
-  delay(500);
+//  ResponseStructContainer c = e220ttl.getConfiguration();
+//  Configuration config = *(Configuration*)c.data;
+//  c.close();
+//  config.CHAN = 23;
+//  rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
+//  delay(500);
 
   incoming.data = "A";
   while (incoming.data[0] != 'C') {

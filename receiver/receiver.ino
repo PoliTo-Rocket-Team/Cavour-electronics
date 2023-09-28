@@ -34,19 +34,19 @@ void setup() {
   Serial.println("Starting in 500 ms");
   delay(500);
 
-  ResponseStructContainer c = e220ttl.getConfiguration();
-  Configuration config = *(Configuration*)c.data;
-  c.close();
-  Serial.print("Old saved channel: ");
-  Serial.println(config.CHAN);
-  delay(200);
-  Serial.println("Setting default frequency");
-  config.CHAN = 23;
-  delay(500);
-  rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
-  Serial.println(rs.getResponseDescription());
-  Serial.println();
-  delay(500);
+//  ResponseStructContainer c = e220ttl.getConfiguration();
+//  Configuration config = *(Configuration*)c.data;
+//  c.close();
+//  Serial.print("Old saved channel: ");
+//  Serial.println(config.CHAN);
+//  delay(200);
+//  Serial.println("Setting default frequency");
+//  config.CHAN = 23;
+//  delay(500);
+//  rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
+//  Serial.println(rs.getResponseDescription());
+//  Serial.println();
+//  delay(500);
   Serial.println("Altitude,\tAvgPressure,\tAvgTemperature,\tAx,\tAy,\tAz,\tGx,\tGy,\tGz");
 }
 
@@ -55,7 +55,7 @@ void loop() {
     ResponseStructContainer rsc = e220ttl.receiveMessageRSSI(sizeof(RocketData));
     packet = *(RocketData*)rsc.data;
     rsc.close();
-    Serial.println(packet.code);
+    //Serial.println(packet.code);
     switch (packet.code) {
       case 'C':
         {
@@ -201,7 +201,7 @@ void printData(struct RocketData packet){
   if (reference_flag) {
     reference = (packet.bar1+packet.bar2)*0.5;
     reference_flag = false;
-    
+  }
   float altitude = 44330 * (1.0 - pow((packet.bar1+packet.bar2)*0.5 / reference, 0.1903));
   // Serial.print("\n");
   //Serial.print("Altitude:");
