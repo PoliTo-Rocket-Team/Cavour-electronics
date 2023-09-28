@@ -65,6 +65,7 @@ void loop() {
       case 'D':
         {
           handleData(packet);
+          printData(packet);
           break;
         }
       default:
@@ -193,3 +194,31 @@ void handleData(struct RocketData packet) {
   Serial.print(packet.gz);
   Serial.println();
 }
+
+void printData(struct RocketData packet){
+  
+   float altitude = 44330 * (1.0 - pow((packet.bar1+packet.bar2)*0.5 / reference, 0.1903));
+  Serial.print("\n");
+  Serial.print("Altitude:");
+  Serial.print(altitude);
+  Serial.print(",PressureAverage:");
+  Serial.print((packet.bar1+packet.bar2)/2);
+
+  Serial.print(",TemperatureAverage:");
+  Serial.print((packet.temp1+packet.temp2)/2);
+
+  
+  Serial.print(",ax:");
+  Serial.print(packet.ax);
+  Serial.print(",ay:");
+  Serial.print(packet.ay);
+  Serial.print(",az:");
+  Serial.print(packet.az);
+  Serial.print(",gx:");
+  Serial.print(packet.gx);
+  Serial.print(",gy:");
+  Serial.print(packet.gy);
+  Serial.print(",gz:");
+  Serial.print(packet.gz);
+}
+  
