@@ -5,7 +5,7 @@
 #define DELAY 100
 
 void handleData(struct RocketData packet);
-void changeFrequency(unsigned f, bool sender);
+void changeFrequency(unsigned f);
 
 struct RocketData {
   char code;
@@ -25,12 +25,11 @@ ResponseStatus rs;
 float reference;
 bool reference_flag = true;
 
-byte channel; // Memorizzo il canale attuale
-int ack_count; // Creo un contatore per le conferme ricevute
 
 void setup() {
   Serial.begin(9600);
-  while (!Serial);
+  while (!Serial)
+    ;
   e220ttl.begin();
   Serial.println("Starting in 500 ms");
   delay(500);
@@ -38,14 +37,11 @@ void setup() {
   ResponseStructContainer c = e220ttl.getConfiguration();
   Configuration config = *(Configuration*)c.data;
   c.close();
-
-  channel = config.CHAN; // Inizializzo la variabile channel con il valore salvato nella configurazione
   Serial.print("Old saved channel: ");
-  Serial.println(channel);
+  Serial.println(config.CHAN);
   delay(200);
   Serial.println("Setting default frequency");
-  channel = 23;
-  config.CHAN = channel;
+  config.CHAN = 76;
   delay(500);
   rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
   Serial.println(rs.getResponseDescription());
@@ -54,37 +50,19 @@ void setup() {
 }
 
 void loop() {
-
-  static unsigned long timer = millis(); // Inizializzo il timer
-  
   if (e220ttl.available()) {
     ResponseStructContainer rsc = e220ttl.receiveMessageRSSI(sizeof(RocketData));
     packet = *(RocketData*)rsc.data;
     rsc.close();
-
     Serial.println(packet.code);
     switch (packet.code) {
-      case 'F': // F --> cambio di frequenza
-         {
-           byte f = char(packet.bar1) | 0x30; // Estraggo la nuova frequenza dal messaggio
-           Serial.print("Changing frequency... ");
-           Serial.println(f);
-           changeFrequency(f, false); // Chiamo la funzione changeFrequency in modalità receiver
-           break;
-         }
-      case 'R': //  --> il razzo ha confermato il cambio frequenza
+      case 'C':
         {
-          rs = e220ttl.sendMessage("R");
+          rs = e220ttl.sendMessage("C");
           Serial.println(rs.getResponseDescription());
           break;
         }
-      case 'G': //  --> la seconda ground station ha confermato il cambio frequenza
-        {
-          rs = e220ttl.sendMessage("G");
-          Serial.println(rs.getResponseDescription());
-          break;
-        }
-      case 'D': // D --> ho ricevuto un normale pacchetto dati
+      case 'D':
         {
           handleData(packet);
           break;
@@ -102,91 +80,73 @@ void loop() {
           unsigned f = Serial.parseInt();
           Serial.print("Changing frequency: ");
           Serial.println(f);
-          changeFrequency(f, true); // Chiamo la funzione changeFrequency in modalità sender
+          changeFrequency(f);
           break;
         }
     }
   }
-
-  if (millis() - timer > DELAY) {
-     timer = millis(); // Aggiorno il timer
-   }
+  delay(DELAY);
 }
 
-void changeFrequency(unsigned freq, bool sender) {
+void changeFrequency(unsigned freq) {
   ResponseStructContainer c;
   Configuration config;
   ResponseStructContainer incoming;
   bool ok;
+  unsigned int old_freq;
 
   c = e220ttl.getConfiguration();
   config = *(Configuration*)c.data;
   c.close();
-
+  old_freq = config.CHAN;
   Serial.print("Old frequency: ");
-  Serial.println(channel);
+  Serial.println(old_freq);
 
   char msg[] = "F0";
-  msg[1] = freq | 0x30; // Converto in char
+  msg[1] = freq;
 
   ok = false;
   int counter = 0;
-
-  if (sender) {
-
-     ack_count = 0; // Azzero il contatore
-
-     while (1) {
-       for (int i = 0; i < 5; i++) {
-         rs = e220ttl.sendMessage(msg); // Invio la nuova frequenza ai due destinatari
-         Serial.print("Attempt ");
-         Serial.println(i);
-         Serial.println(rs.getResponseDescription());
-       }
-
-       channel = freq; // Imposto la nuova frequenza
-       config.CHAN = channel;
-       Serial.println("Switching to new frequency");
-       rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
-       Serial.println(rs.getResponseDescription());
-       long start = millis();
-
-       do {
-         Serial.println("Waiting for ack");
-         delay(100);
-
-         if (e220ttl.available()) {
-           Serial.println("I received something");
-           incoming = e220ttl.receiveMessage(sizeof(RocketData));
-           packet = *(RocketData*)incoming.data;
-           incoming.close();
-
-           if (packet.code == ('R' || 'G')) {
-             ack_count++; // Incremento la variabile ack_count se ho ricevuto una conferma
-             Serial.print("Received ack from ");
-             Serial.println(packet.code);
-
-             if (ack_count == 2) {
-               ok = true; // Ho ricevuto entrambe le conferme
-             }
-           }
-         }
-       } while (!ok && millis() - start < FCHANGE_TIMEOUT); // Ripeto finché non ho ricevuto due conferme o non è scaduto il timeout
+  while (1) {
+    for (int i = 0; i < 5; i++) {
+      rs = e220ttl.sendMessage(msg);
+      Serial.print("Attempt ");
+      Serial.println(i);
+      Serial.println(rs.getResponseDescription());
+      delay(50);
+    }
+    config.CHAN = freq;
+    Serial.println("Switching to new frequency");
+    rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
+    Serial.println(rs.getResponseDescription());
+    long start = millis();
+    do {
+      Serial.println("Waiting for ack");
+      delay(100);
+      if (e220ttl.available()) {
+        Serial.println("I received something");
+        incoming = e220ttl.receiveMessage(sizeof(RocketData));
+        packet = *(RocketData*)incoming.data;
+        incoming.close();
+        if (packet.code == 'C' || packet.code == 'D') {
+          Serial.println("Sending ack back");
+          rs = e220ttl.sendMessage("C");
+          ok = true;
+        }
+      }
+    } while (!ok && millis() - start < FCHANGE_TIMEOUT);
 
     if (ok) break;
-
     Serial.println("Switching back to old frequency");
     config.CHAN = old_freq;
     rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
     Serial.println(rs.getResponseDescription());
-    
+
     counter++;
     if (counter == 10) break;
   }
-
   if (ok) Serial.println("Frequency change completed");
   else Serial.println("Could not change frequency in 10 attempts");
-  }
 }
 
 void handleData(struct RocketData packet) {
