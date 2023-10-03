@@ -34,20 +34,20 @@ void setup() {
   Serial.println("Starting in 500 ms");
   delay(500);
 
-  ResponseStructContainer c = e220ttl.getConfiguration();
-  Configuration config = *(Configuration*)c.data;
-  c.close();
-  Serial.print("Old saved channel: ");
-  Serial.println(config.CHAN);
-  delay(200);
-  Serial.println("Setting default frequency");
-  config.CHAN = 23;
-  delay(500);
-  rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
-  Serial.println(rs.getResponseDescription());
-  Serial.println();
-  delay(500);
-  Serial.println("Altitude,\tAvgPressure,\tAvgTemperature,\tAx,\tAy,\tAz,\tGx,\tGy,\tGz");
+//  ResponseStructContainer c = e220ttl.getConfiguration();
+//  Configuration config = *(Configuration*)c.data;
+//  c.close();
+//  Serial.print("Old saved channel: ");
+//  Serial.println(config.CHAN);
+//  delay(200);
+//  Serial.println("Setting default frequency");
+//  config.CHAN = 23;
+//  delay(500);
+//  rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
+//  Serial.println(rs.getResponseDescription());
+//  Serial.println();
+//  delay(500);
+//  Serial.println("Altitude,\tAvgPressure,\tAvgTemperature,\tAx,\tAy,\tAz,\tGx,\tGy,\tGz");
 }
 
 void loop() {
