@@ -19,7 +19,9 @@ struct RocketData {
   float gz;
 } packet;
 
-LoRa_E220 e220ttl(&Serial1, 2, 5, 7);  //  RX AUX M0 M1
+//LoRa_E220 e220ttl(&Serial1, 2, 5, 7);  //  RX AUX M0 M1
+LoRa_E220 e220ttl(3, 2, 5, 8, 10); // Arduino RX <-- e220 TX, Arduino TX --> e220 RX AUX M0 M1
+
 
 ResponseStatus rs;
 float reference;
@@ -204,30 +206,30 @@ void printData(struct RocketData packet){
   }
   float altitude = 44330 * (1.0 - pow((packet.bar1+packet.bar2)*0.5 / reference, 0.1903));
   // Serial.print("\n");
-  //Serial.print("Altitude:");
+  Serial.print("Altitude:");
    Serial.print(altitude);
    Serial.print(" ");
-  // Serial.print(",PressureAverage:");
+   Serial.print(",PressureAverage:");
    Serial.print((packet.bar1+packet.bar2)/2);
    Serial.print(" ");
-  //Serial.print(",TemperatureAverage:");
+  Serial.print(",TemperatureAverage:");
    Serial.println((packet.temp1+packet.temp2)/2);
    Serial.print(" ");
-  // Serial.print(",ax:");
-   Serial.println(packet.ax);
+   Serial.print(",ax:");
+   Serial.println(packet.ax*9.81);
    Serial.print(" ");
-  // Serial.print(",ay:");
-   Serial.println(packet.ay);
+  Serial.print(",ay:");
+   Serial.println(packet.ay*9.81);
    Serial.print(" ");
-  // Serial.print(",az:");
-   Serial.println(packet.az);
+   Serial.print(",az:");
+   Serial.println(packet.az*9.81);
    Serial.print(" ");
-  // Serial.print(",gx:");
+   Serial.print(",gx:");
    Serial.println(packet.gx);
    Serial.print(" ");
-  // Serial.print(",gy:");
+   Serial.print(",gy:");
    Serial.println(packet.gy);
    Serial.print(" ");
-  // Serial.print(",gz:");
+  Serial.print(",gz:");
    Serial.println(packet.gz);
   }
