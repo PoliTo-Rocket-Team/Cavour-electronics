@@ -1,4 +1,4 @@
-#include <Arduino_LSM9DS1.h>
+#include <ReefwingLSM9DS1.h> // https://github.com/Reefwing-Software/Reefwing-LSM9DS1/tree/main
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
@@ -6,6 +6,8 @@
 #include <SD.h>
 #include "LoRa_E220.h"
 
+// #define LSM9DS1AG_ADDRESS 0x6B  // Address of accelerometer & gyroscope
+// #define LSM9DS1M_ADDRESS  0x1E  // Address of magnetometer
 #define OUTPUT_FILE "log.txt"
 #define SAMPLE_DELAY 50
 #define SEND_TIMEOUT 1000
@@ -21,8 +23,8 @@ void sendData();
 
 struct RocketData {
   char code;
-  byte bar[4];
-  byte temp[4];
+  byte bar1[4], bar2[4];
+  byte temp1[4], temp2[4];
   byte ax[4];
   byte ay[4];
   byte az[4];
@@ -31,18 +33,22 @@ struct RocketData {
   byte gz[4];
 } packet;
 
-LoRa_E220 e220ttl(&Serial1, 4, 2, 3);  //  RX AUX M0 M1
 Adafruit_BMP280 bmp1;
 Adafruit_BMP280 bmp2;
+ReefwingLSM9DS1 imu; // new
 
+LoRa_E220 e220ttl(&Serial1, 4, 2, 3);  //  RX AUX M0 M1
+
+// Configuration config;
 File myFile;
 ResponseContainer incoming;
 ResponseStatus rs;
 
 float ax, ay, az;
 float gx, gy, gz;
-float bar, temp;
-char data_line[140];
+float bar1, bar2;
+float temp1, temp2;
+char data_line[160];
 static unsigned long last_send;
 static unsigned long elapsed;
 bool old;
@@ -54,30 +60,45 @@ void setup() {
   pinMode(SD_LED, OUTPUT);
 
   Serial1.begin(9600);
-
+  //while(!e220ttl);
+  delay(500);
   if (!e220ttl.begin()) {
     digitalWrite(TX_LED, HIGH);
     digitalWrite(RX_LED, HIGH);
     digitalWrite(SD_LED, HIGH);
     while (1);
   }
+//
+//  if (!SD.begin(A0)) {
+//    while (1) {
+//      digitalWrite(SD_LED, HIGH);
+//      delay(1000);
+//      digitalWrite(SD_LED, LOW);
+//      delay(1000);
+//    }
+//  }
 
-  if (!SD.begin(A0)) {
-    while (1) {
-      digitalWrite(SD_LED, HIGH);
-      delay(1000);
-      digitalWrite(SD_LED, LOW);
-      delay(1000);
-    }
-  }
-
-  if (!IMU.begin()) {
+  if (!imu.begin()) {
     while (1) {
       digitalWrite(SD_LED, HIGH);
       delay(200);
       digitalWrite(SD_LED, LOW);
       delay(200);
     }
+
+    // initial configuration
+    imu.start();
+    imu.setAccelScale(FS_XL_16G); // extend range to +-16G
+    imu.calibrateGyro();
+    imu.calibrateAccel();
+    imu.calibrateMag();
+
+    delay(20);
+    //  Flush the first reading - this is important!
+    //  Particularly after changing the configuration.
+    imu.readGyro();
+    imu.readAccel();
+    imu.readMag();
   }
 
   if (!bmp1.begin(0x76)) {
@@ -97,22 +118,23 @@ void setup() {
       delay(3000);
     }
   }
-
-  if(!(myFile = SD.open(OUTPUT_FILE, FILE_WRITE))) {
-    while(1) {
-      digitalWrite(SD_LED, HIGH);
-      delay(4000);
-      digitalWrite(SD_LED, LOW);
-      delay(4000);
-    }
-  }
-
-  ResponseStructContainer c = e220ttl.getConfiguration();
-  Configuration config = *(Configuration*)c.data;
-  c.close();
-  config.CHAN = 76;
-  rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
-  delay(500);
+//
+//  if(!(myFile = SD.open(OUTPUT_FILE, FILE_WRITE))) {
+//    while(1) {
+//      digitalWrite(SD_LED, HIGH);
+//      delay(4000);
+//      digitalWrite(SD_LED, LOW);
+//      delay(4000);
+//    }
+//  }
+//
+//  ResponseStructContainer c = e220ttl.getConfiguration();
+//  Configuration config = *(Configuration*)c.data;
+//  c.close();
+//  config.CHAN = 23;
+//   delay(500);
+//  rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
+//  delay(500);
 
   incoming.data = "A";
   while (incoming.data[0] != 'C') {
@@ -143,7 +165,7 @@ void loop() {
   readAG();
   readPT();
 
-  sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), bar, temp, ax, ay, az, gx, gy, gz);
+  sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), bar1, bar2, temp1, temp2, ax, ay, az, gx, gy, gz);
 
   if (myFile) {
     digitalWrite(SD_LED, HIGH);
@@ -165,13 +187,22 @@ void loop() {
 
 
 void readPT() {
-  bar = (bmp1.readPressure()+bmp2.readPressure())*0.5e-2;
-  temp = (bmp1.readTemperature()+bmp2.readTemperature())*0.5;
+  bar1 = bmp1.readPressure()*0.01; 
+  bar2 = bmp2.readPressure()*0.01;
+  temp1 = bmp1.readTemperature();
+  temp2 = bmp2.readTemperature();
 }
 
 void readAG() {
-  IMU.readAcceleration(ax, ay, az);
-  IMU.readGyroscope(gx, gy, gz);
+  imu.updateSensorData();
+  ax = imu.data.ax;
+  ay = imu.data.ay;
+  az = imu.data.az;
+  gx = imu.data.gx;
+  gy = imu.data.gy;
+  gz = imu.data.gz;
+  // IMU.readAcceleration(ax, ay, az);
+  // IMU.readGyroscope(gx, gy, gz);
 }
 
 void sendData() {
@@ -182,8 +213,10 @@ void sendData() {
   *(float*)packet.gx = gx;
   *(float*)packet.gy = gy;
   *(float*)packet.gz = gz;
-  *(float*)packet.bar = bar;
-  *(float*)packet.temp = temp;
+  *(float*)packet.bar1 = bar1;
+  *(float*)packet.bar2 = bar2;
+  *(float*)packet.temp1 = temp1;
+  *(float*)packet.temp2 = temp2;
 
   ResponseStatus rs = e220ttl.sendMessage(&packet, sizeof(RocketData));
 }
