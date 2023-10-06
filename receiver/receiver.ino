@@ -19,7 +19,8 @@ struct RocketData {
   float gz;
 } packet;
 
-LoRa_E220 e220ttl(&Serial1, 2, 5, 7);  //  RX AUX M0 M1
+//LoRa_E220 e220ttl(&Serial1, 2, 5, 7);  //  RX AUX M0 M1
+LoRa_E220 e220ttl(3, 2, 5, 8, 10); // Arduino RX <-- e220 TX, Arduino TX --> e220 RX AUX M0 M1
 
 ResponseStatus rs;
 float reference;
