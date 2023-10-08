@@ -10,9 +10,9 @@
 #define SAMPLE_DELAY 50
 #define SEND_TIMEOUT 1000
 #define COM_DELAY 300
-#define TX_LED 5
-#define RX_LED 6
-#define SD_LED 7
+// #define TX_LED 5
+// #define RX_LED 6
+// #define SD_LED 7
 
 void changeFrequency(unsigned freq);
 void readAG();
@@ -21,8 +21,8 @@ void sendData();
 
 struct RocketData {
   char code;
-  byte bar[4];
-  byte temp[4];
+  byte bar1[4], bar2[4];
+  byte temp1[4], temp2[4];
   byte ax[4];
   byte ay[4];
   byte az[4];
@@ -41,69 +41,70 @@ ResponseStatus rs;
 
 float ax, ay, az;
 float gx, gy, gz;
-float bar, temp;
-char data_line[140];
+float bar1, bar2;
+float temp1, temp2;
+char data_line[160];
 static unsigned long last_send;
 static unsigned long elapsed;
 bool old;
 
 
 void setup() {
-  pinMode(TX_LED, OUTPUT);
-  pinMode(RX_LED, OUTPUT);
-  pinMode(SD_LED, OUTPUT);
+  // pinMode(TX_LED, OUTPUT);
+  // pinMode(RX_LED, OUTPUT);
+  // pinMode(SD_LED, OUTPUT);
 
   Serial1.begin(9600);
 
   if (!e220ttl.begin()) {
-    digitalWrite(TX_LED, HIGH);
-    digitalWrite(RX_LED, HIGH);
-    digitalWrite(SD_LED, HIGH);
+    // digitalWrite(TX_LED, HIGH);
+    // digitalWrite(RX_LED, HIGH);
+    // digitalWrite(SD_LED, HIGH);
     while (1);
   }
 
   if (!SD.begin(A0)) {
     while (1) {
-      digitalWrite(SD_LED, HIGH);
-      delay(1000);
-      digitalWrite(SD_LED, LOW);
-      delay(1000);
+      // digitalWrite(SD_LED, HIGH);
+      // delay(1000);
+      // digitalWrite(SD_LED, LOW);
+      // delay(1000);
     }
   }
 
   if (!IMU.begin()) {
     while (1) {
-      digitalWrite(SD_LED, HIGH);
-      delay(200);
-      digitalWrite(SD_LED, LOW);
-      delay(200);
+      // digitalWrite(SD_LED, HIGH);
+      // delay(200);
+      // digitalWrite(SD_LED, LOW);
+      // delay(200);
     }
   }
 
   if (!bmp1.begin(0x76)) {
     while (1) {
-      digitalWrite(SD_LED, HIGH);
-      delay(2000);
-      digitalWrite(SD_LED, LOW);
-      delay(2000);
+      // digitalWrite(SD_LED, HIGH);
+      // delay(2000);
+      // digitalWrite(SD_LED, LOW);
+      // delay(2000);
     }
   }
 
   if (!bmp2.begin(0x77)) {
     while (1) {
-      digitalWrite(SD_LED, HIGH);
-      delay(3000);
-      digitalWrite(SD_LED, LOW);
-      delay(3000);
+      // digitalWrite(SD_LED, HIGH);
+      // delay(3000);
+      // digitalWrite(SD_LED, LOW);
+      // delay(3000);
     }
   }
 
   if(!(myFile = SD.open(OUTPUT_FILE, FILE_WRITE))) {
     while(1) {
-      digitalWrite(SD_LED, HIGH);
-      delay(4000);
-      digitalWrite(SD_LED, LOW);
-      delay(4000);
+      // digitalWrite(SD_LED, HIGH);
+      // delay(4000);
+      // digitalWrite(SD_LED, LOW);
+      // delay(4000);
     }
   }
 
@@ -143,21 +144,24 @@ void loop() {
   readAG();
   readPT();
 
-  sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), bar, temp, ax, ay, az, gx, gy, gz);
+  sprintf(data_line, "%u,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f", millis(), bar1, bar2, temp1, temp2, ax, ay, az, gx, gy, gz);
 
   if (myFile) {
-    digitalWrite(SD_LED, HIGH);
-    myFile.println(data_line);
-    digitalWrite(SD_LED, LOW);
+    // digitalWrite(SD_LED, HIGH);
+    // myFile.println(data_line);
+    // digitalWrite(SD_LED, LOW);
   }
   
   elapsed = millis() - last_send;
+  
   if (elapsed > SEND_TIMEOUT) {
+    
     last_send = millis();
+    
     if (myFile) myFile.flush();
-    digitalWrite(TX_LED, HIGH);
-    sendData();
-    digitalWrite(TX_LED, LOW);
+    // digitalWrite(TX_LED, HIGH);
+    // sendData();
+    // digitalWrite(TX_LED, LOW);
   }
   
   delay(SAMPLE_DELAY);
@@ -165,8 +169,10 @@ void loop() {
 
 
 void readPT() {
-  bar = (bmp1.readPressure()+bmp2.readPressure())*0.5e-2;
-  temp = (bmp1.readTemperature()+bmp2.readTemperature())*0.5;
+  bar1 = bmp1.readPressure()*0.01; 
+  bar2 = bmp2.readPressure()*0.01;
+  temp1 = bmp1.readTemperature();
+  temp2 = bmp2.readTemperature();
 }
 
 void readAG() {
@@ -182,8 +188,10 @@ void sendData() {
   *(float*)packet.gx = gx;
   *(float*)packet.gy = gy;
   *(float*)packet.gz = gz;
-  *(float*)packet.bar = bar;
-  *(float*)packet.temp = temp;
+  *(float*)packet.bar1 = bar1;
+  *(float*)packet.bar2 = bar2;
+  *(float*)packet.temp1 = temp1;
+  *(float*)packet.temp2 = temp2;
 
   ResponseStatus rs = e220ttl.sendMessage(&packet, sizeof(RocketData));
 }
