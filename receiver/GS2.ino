@@ -32,11 +32,11 @@ void setup() {
   while (!e220ttl.begin());
   Serial.println("Starting...");
 
- ResponseStructContainer c = e220ttl.getConfiguration();
- Configuration config = *(Configuration*)c.data;
- c.close();
- Serial.print("Old saved channel: ");
- Serial.println(config.CHAN);
+  ResponseStructContainer c = e220ttl.getConfiguration();
+  Configuration config = *(Configuration*)c.data;
+  c.close();
+  Serial.print("Old saved channel: ");
+  Serial.println(config.CHAN);
 }
 
 void loop() {
@@ -45,6 +45,7 @@ void loop() {
     rssi = rsc.rssi;
     packet = *(RocketData*)rsc.data;
     rsc.close();
+    
     switch (packet.code) {
       case 'C':
         {
@@ -79,6 +80,24 @@ void loop() {
 }
 
 void changeFrequency(unsigned freq) {
+  // ResponseStructContainer c;
+  // Configuration config;
+  // ResponseStructContainer incoming;
+  // bool ok;
+  // unsigned int old_freq;
+
+  // c = e220ttl.getConfiguration();
+  // config = *(Configuration*)c.data;
+  // c.close();
+  // old_freq = config.CHAN;
+  // Serial.print("Old frequency: ");
+  // Serial.println(old_freq);
+
+  // config.CHAN = freq;
+  // Serial.println("Switching to new frequency");
+  // rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
+  // Serial.println(rs.getResponseDescription());
+  
   ResponseStructContainer c;
   Configuration config;
   ResponseStructContainer incoming;
@@ -92,10 +111,56 @@ void changeFrequency(unsigned freq) {
   Serial.print("Old frequency: ");
   Serial.println(old_freq);
 
-  config.CHAN = freq;
-  Serial.println("Switching to new frequency");
-  rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
-  Serial.println(rs.getResponseDescription());
+  char msg[] = "F0";
+  msg[1] = freq;
+
+  ok = false;
+  int counter = 0;
+  
+  while (1) {
+    for (int i = 0; i < 5; i++) {
+      rs = e220ttl.sendMessage(msg);
+      Serial.print("Attempt ");
+      Serial.println(i);
+      Serial.println(rs.getResponseDescription());
+      delay(50);
+    }
+    
+    config.CHAN = freq;
+    Serial.println("Switching to new frequency");
+    rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
+    Serial.println(rs.getResponseDescription());
+    long start = millis();
+    
+    do {
+      Serial.println("Waiting for ack");
+      delay(100);
+      if (e220ttl.available()) {
+        Serial.println("I received something");
+        incoming = e220ttl.receiveMessage(sizeof(RocketData));
+        packet = *(RocketData*)incoming.data;
+        incoming.close();
+        
+        if (packet.code == 'C' || packet.code == 'D') {
+          Serial.println("Sending ack back");
+          rs = e220ttl.sendMessage("C");
+          ok = true;
+        }
+      }
+    } while (!ok && millis() - start < FCHANGE_TIMEOUT);
+
+    if (ok) break;
+    Serial.println("Switching back to old frequency");
+    config.CHAN = old_freq;
+    rs = e220ttl.setConfiguration(config, WRITE_CFG_PWR_DWN_SAVE);
+    Serial.println(rs.getResponseDescription());
+
+    counter++;
+    if (counter == 10) break;
+  }
+  
+  if (ok) Serial.println("Frequency change completed");
+  else Serial.println("Could not change frequency in 10 attempts");
 }
 
 void handleData(struct RocketData packet) {
